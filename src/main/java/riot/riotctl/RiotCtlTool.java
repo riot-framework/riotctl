@@ -2,8 +2,10 @@ package riot.riotctl;
 
 import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintWriter;
@@ -50,9 +52,6 @@ public class RiotCtlTool implements Closeable {
 	public void ensurePackages(String packages) {
 		for (Session session : sessions) {
 			try {
-				// ProxyServer proxy = new ProxyServer(new ServerAuthenticatorNone());
-				// proxy.start(8080, 5, InetAddress.getLoopbackAddress());
-
 				SocksProxy proxy = new SocksProxy(8080, log);
 				new Thread(proxy).start();
 				session.setPortForwardingR(8080, "localhost", proxy.getPort());
@@ -63,15 +62,14 @@ public class RiotCtlTool implements Closeable {
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + packages;
 
-				// Update package list, but not more often than once a day:
-				exec(session, "find /var/cache/apt/pkgcache.bin -mmin -1440 -exec " + aptUpdateCmd + " \\;");
+				// Update package list if it's over a month old:
+				exec(session, "find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;");
 
-				// Update the packages
+				// Update the packages:
 				exec(session, aptInstallCmd);
 
 				session.delPortForwardingR(8080);
 				proxy.close();
-
 			} catch (Exception e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -81,6 +79,10 @@ public class RiotCtlTool implements Closeable {
 
 	public void run(File source) {
 
+		for (Session session : sessions) {
+			copy(source);
+			exec(session, "/usr/local/" + packageName + '/' + packageName); // TODO: Parametrise this!
+		}
 	}
 
 	public void debug(File source) {
@@ -93,6 +95,18 @@ public class RiotCtlTool implements Closeable {
 
 	public void uninstall() {
 
+	}
+
+	private void copy(File source) {
+		for (Session session : sessions) {
+			try {
+				log.info("Copying " + packageName + " to " + session.getHost());
+				scpDir(session, source, "/usr/local/" + packageName);
+			} catch (Exception e) {
+				e.printStackTrace();
+				log.error(e.getMessage());
+			}
+		}
 	}
 
 	@Override
@@ -151,6 +165,120 @@ public class RiotCtlTool implements Closeable {
 		channel.connect(3000);
 
 		return new PrintWriter(out);
+	}
+
+	private static final class FileFilter implements java.io.FileFilter {
+		@Override
+		public boolean accept(File pathname) {
+			return pathname.isFile();
+		}
+	}
+
+	private void scpDir(Session session, File lDir, String rDir) throws JSchException, IOException {
+		for (File lFile : lDir.listFiles()) {
+			final String rFile = rDir + '/' + lFile.getName();
+			if (lFile.isDirectory()) {
+				scp(session, lFile, rFile);
+			} else {
+				scpDir(session, lFile, rFile);
+			}
+		}
+	}
+
+	private void scp(Session session, File lFile, String rFileName) throws JSchException, IOException {
+		ChannelExec channel = (ChannelExec) session.openChannel("exec");
+		channel.setPtyType("vanilla");
+		channel.setEnv("LC_ALL", "en_US.UTF-8");
+		channel.setInputStream(null);
+
+		// exec 'scp -t rfile' remotely
+		rFileName = rFileName.replace("'", "'\"'\"'");
+		channel.setCommand("scp -p -t '" + rFileName + "'");
+
+		OutputStream out = channel.getOutputStream();
+		InputStream in = channel.getInputStream();
+
+		channel.connect(3000);
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		String lFileName = lFile.getName();
+		String command;
+		FileInputStream fis;
+
+		command = "T " + (lFile.lastModified() / 1000) + " 0";
+		command += (" " + (System.currentTimeMillis() / 1000) + " 0\n");
+		out.write(command.getBytes());
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		// send "C0644 filesize filename", where filename should not include '/'
+		long filesize = lFile.length();
+		command = "C0644 " + filesize + " ";
+		if (lFileName.lastIndexOf('/') > 0) {
+			command += lFileName.substring(lFileName.lastIndexOf('/') + 1);
+		} else {
+			command += lFileName;
+		}
+		command += "\n";
+		out.write(command.getBytes());
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		// send a content of lfile
+		fis = new FileInputStream(lFileName);
+		byte[] buf = new byte[1024];
+		while (true) {
+			int len = fis.read(buf, 0, buf.length);
+			if (len <= 0)
+				break;
+			out.write(buf, 0, len); // out.flush();
+		}
+		fis.close();
+		fis = null;
+		// send '\0'
+		buf[0] = 0;
+		out.write(buf, 0, 1);
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+		out.close();
+
+		channel.disconnect();
+	}
+
+	/**
+	 * Check for SCP Acknowledge return code; 0 for success, 1 for error, 2 for
+	 * fatal error.
+	 */
+	private int checkAck(InputStream in) throws IOException {
+		int b = in.read();
+		if (b == 0)
+			return b;
+		if (b == -1)
+			return b;
+
+		if (b == 1 || b == 2) {
+			StringBuffer sb = new StringBuffer();
+			int c;
+			do {
+				c = in.read();
+				sb.append((char) c);
+			} while (c != '\n');
+			if (b == 1) { // error
+				log.error(sb.toString());
+			}
+			if (b == 2) { // fatal error
+				log.error(sb.toString());
+			}
+		}
+		return b;
 	}
 
 	public static void main(String[] args) throws IOException {
