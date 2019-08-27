@@ -1,4 +1,4 @@
-package riot.riotctl;
+package riot.riotctl.steps;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -8,6 +8,8 @@ import java.net.Socket;
 
 import org.connectbot.simplesocks.Socks5Server;
 import org.connectbot.simplesocks.Socks5Server.ResponseCode;
+
+import riot.riotctl.Logger;
 
 public class SocksProxy implements Runnable, Closeable {
 	private final ServerSocket serverSocket;

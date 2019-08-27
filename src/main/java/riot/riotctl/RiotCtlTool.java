@@ -18,6 +18,8 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 
+import riot.riotctl.steps.SocksProxy;
+
 public class RiotCtlTool implements Closeable {
 
 	private JSch jsch = new JSch();
@@ -78,7 +80,6 @@ public class RiotCtlTool implements Closeable {
 	}
 
 	public void run(File source) {
-
 		for (Session session : sessions) {
 			copy(source);
 			exec(session, "/usr/local/" + packageName + '/' + packageName); // TODO: Parametrise this!

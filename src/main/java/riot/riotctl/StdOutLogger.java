@@ -1,6 +1,6 @@
 package riot.riotctl;
 
-final class StdOutLogger extends Logger {
+public final class StdOutLogger extends Logger {
 
 	@Override
 	public void error(String s) {

@@ -1,4 +1,4 @@
-package riot.riotctl;
+package riot.riotctl.discovery;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -14,6 +14,10 @@ import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceEvent;
 import javax.jmdns.ServiceListener;
 import javax.jmdns.ServiceTypeListener;
+
+import riot.riotctl.Logger;
+import riot.riotctl.StdOutLogger;
+import riot.riotctl.Target;
 
 public class BonjourProbe implements ServiceListener, ServiceTypeListener, Closeable {
 
