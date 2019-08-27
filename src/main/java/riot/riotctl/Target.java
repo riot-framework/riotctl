@@ -2,7 +2,9 @@ package riot.riotctl;
 
 public class Target {
 
-	public Target(final String hostname, final String username, final String password) {
+	public enum DiscoveryMethod {hostname}
+	
+	public Target(final DiscoveryMethod method, final String hostname, final String username, final String password) {
 		this.hostname = hostname;
 		this.username = username;
 		this.password = password;

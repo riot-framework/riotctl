@@ -14,7 +14,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 
-public class Util implements Closeable {
+public class RiotCtlTool implements Closeable {
 
 	private JSch jsch = new JSch();
 
@@ -22,7 +22,7 @@ public class Util implements Closeable {
 	private final List<Session> sessions = new ArrayList<Session>();
 	private final Logger log;
 
-	public Util(String packageName, List<Target> targets, Logger log) {
+	public RiotCtlTool(String packageName, List<Target> targets, Logger log) {
 		super();
 		this.packageName = packageName;
 		this.log = log;
