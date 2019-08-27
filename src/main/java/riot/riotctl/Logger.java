@@ -15,7 +15,7 @@ public abstract class Logger extends OutputStream {
 
 	@Override
 	public void write(int b) throws IOException {
-		throw new NotImplementedException("Unable to output indidicual chars");
+		throw new NotImplementedException("Unable to output individual chars");
 	}
 
 	@Override

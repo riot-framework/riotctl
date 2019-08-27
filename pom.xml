@@ -7,6 +7,14 @@
 	<name>RIoT Control base library</name>
 	<description>RiOT Control is a library used by build plugins to deploy Java applications to small form factor computers</description>
 
+	<repositories>
+		<repository>
+			<id>spring-lib-release</id>
+			<name>Spring Lib Release</name>
+			<url>https://repo.spring.io/libs-release</url>
+		</repository>
+	</repositories>
+
 	<dependencies>
 		<!-- SSH access -->
 		<dependency>
@@ -20,8 +28,17 @@
 			<artifactId>jmdns</artifactId>
 			<version>3.5.5</version>
 		</dependency>
-		<!-- Proxy -->
-		
+		<!-- SOCKS5 Proxy -->
+		<dependency>
+			<groupId>org.connectbot.jsocks</groupId>
+			<artifactId>jsocks</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.connectbot</groupId>
+			<artifactId>simplesocks</artifactId>
+			<version>1.0.1</version>
+		</dependency>
 		<!-- Misc -->
 		<dependency>
 			<groupId>org.apache.commons</groupId>

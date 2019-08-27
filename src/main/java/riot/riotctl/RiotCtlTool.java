@@ -4,6 +4,8 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +30,8 @@ public class RiotCtlTool implements Closeable {
 		this.log = log;
 
 		for (Target target : targets) {
+
+			// new BonjourProbe(log, target).discover(5000);
 			try {
 				log.info("Opening session to " + target.hostname);
 				Session session = jsch.getSession(target.username, target.hostname);
@@ -44,10 +48,30 @@ public class RiotCtlTool implements Closeable {
 	}
 
 	public void ensurePackages(String packages) {
-		log.info("Checking dependencies " + packages);
 		for (Session session : sessions) {
 			try {
-				log.info("Exit Code: " + exec(session, "pwd"));
+				// ProxyServer proxy = new ProxyServer(new ServerAuthenticatorNone());
+				// proxy.start(8080, 5, InetAddress.getLoopbackAddress());
+
+				SocksProxy proxy = new SocksProxy(8080, log);
+				new Thread(proxy).start();
+				session.setPortForwardingR(8080, "localhost", proxy.getPort());
+
+				log.info("Checking dependencies " + packages + " on " + session.getHost());
+
+				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
+				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
+				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + packages;
+
+				// Update package list, but not more often than once a day:
+				exec(session, "find /var/cache/apt/pkgcache.bin -mmin -1440 -exec " + aptUpdateCmd + " \\;");
+
+				// Update the packages
+				exec(session, aptInstallCmd);
+
+				session.delPortForwardingR(8080);
+				proxy.close();
+
 			} catch (Exception e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -81,23 +105,27 @@ public class RiotCtlTool implements Closeable {
 
 	private int exec(Session session, String command) throws JSchException, IOException {
 		ChannelExec channel = (ChannelExec) session.openChannel("exec");
-		channel.setPtyType("vt102");
+		channel.setPtyType("vanilla");
 		channel.setEnv("LC_ALL", "en_US.UTF-8");
-		channel.setEnv("LANG", "en_US.UTF-8");
-		channel.setEnv("LANGUAGE", "en_US.UTF-8");
 		channel.setInputStream(null);
 		channel.setCommand(command);
-		InputStream in = channel.getInputStream();
 
 		channel.connect(3000);
+		logOutput(channel);
 
+		channel.disconnect();
+		return channel.getExitStatus();
+	}
+
+	private void logOutput(ChannelExec channel) throws IOException {
+		InputStream in = channel.getInputStream();
 		byte[] tmp = new byte[1024];
 		while (true) {
 			while (in.available() > 0) {
 				int i = in.read(tmp, 0, 1024);
 				if (i < 0)
 					break;
-				log.info(new String(tmp, 0, i));
+				log.debug(new String(tmp, 0, i));
 			}
 			if (channel.isClosed()) {
 				if (in.available() > 0)
@@ -110,20 +138,29 @@ public class RiotCtlTool implements Closeable {
 				log.error(e.getMessage());
 			}
 		}
-		channel.disconnect();
-		session.disconnect();
-
-		return channel.getExitStatus();
 	}
 
-	private PrintWriter getShell(Session session, String command) throws JSchException, IOException {
+	private PrintWriter getShell(Session session) throws JSchException, IOException {
 		ChannelShell channel = (ChannelShell) session.openChannel("shell");
-		channel.setPtyType("vt102");
+		channel.setPtyType("vanilla");
 		channel.setEnv("LC_ALL", "en_US.UTF-8");
-		channel.setEnv("LANG", "en_US.UTF-8");
-		channel.setEnv("LANGUAGE", "en_US.UTF-8");
 
+		PipedOutputStream out = new PipedOutputStream();
+		channel.setInputStream(new PipedInputStream(out));
+		channel.setOutputStream(log);
 		channel.connect(3000);
-		return new PrintWriter(channel.getOutputStream());
+
+		return new PrintWriter(out);
+	}
+
+	public static void main(String[] args) throws IOException {
+		StdOutLogger log = new StdOutLogger();
+		List<Target> targets = new ArrayList<>();
+		Target target = new Target(null, "raspberrypi.local", "pi", "raspberry");
+		targets.add(target);
+		RiotCtlTool tool = new RiotCtlTool("test", targets, log);
+		tool.ensurePackages("oracle-java8-jdk wiringpi");
+		tool.close();
+		log.info("done");
 	}
 }
