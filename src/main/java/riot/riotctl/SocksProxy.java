@@ -2,6 +2,7 @@ package riot.riotctl;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -45,18 +46,39 @@ public class SocksProxy implements Runnable, Closeable {
 		try {
 			while (running) {
 				log.debug("Socks5 proxy running on port " + port);
-				Socks5Server proxy = new Socks5Server(serverSocket.accept().getInputStream(),
-						new Socket().getOutputStream());
-
-				if (proxy.acceptAuthentication() && proxy.readRequest()) {
-					proxy.sendReply(ResponseCode.SUCCESS);
-				} else {
-
-				}
+				respondAsync(serverSocket.accept().getInputStream());
 			}
 		} catch (IOException e) {
-
+			if (running == true) {
+				e.printStackTrace();
+				log.error(e.getMessage());
+			}
 		}
+	}
+
+	private void respondAsync(InputStream socket) {
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				try {
+					Socket outboundSocket = new Socket();
+					Socks5Server proxy = new Socks5Server(socket, outboundSocket.getOutputStream());
+
+					if (proxy.acceptAuthentication() && proxy.readRequest()) {
+						proxy.sendReply(ResponseCode.SUCCESS);
+						outboundSocket.close();
+						socket.close();
+					} else {
+						log.error("SOCKS5 authentication failed");
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+					log.error("SOCKS5: " + e.getMessage());
+				}
+			}
+
+		}).start();
 	}
 
 	public void close() throws IOException {
