@@ -13,10 +13,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.jcraft.jsch.ChannelExec;
+import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SftpException;
 
 import riot.riotctl.steps.SocksProxy;
 
@@ -42,7 +44,7 @@ public class RiotCtlTool implements Closeable {
 				session.setConfig("StrictHostKeyChecking", "no");
 				session.setPassword(target.password);
 				session.setUserInfo(new UserInfo(log));
-				session.connect(5000);
+				session.connect(8000);
 				sessions.add(session);
 			} catch (JSchException e) {
 				e.printStackTrace();
@@ -58,6 +60,7 @@ public class RiotCtlTool implements Closeable {
 				new Thread(proxy).start();
 				session.setPortForwardingR(8080, "localhost", proxy.getPort());
 
+				// TODO: Skip this if it has been checked before (use a file in etc)
 				log.info("Checking dependencies " + packages + " on " + session.getHost());
 
 				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
@@ -81,8 +84,16 @@ public class RiotCtlTool implements Closeable {
 
 	public void run(File source) {
 		for (Session session : sessions) {
-			copy(source);
-			exec(session, "/usr/local/" + packageName + '/' + packageName); // TODO: Parametrise this!
+			try {
+				log.info("Copying " + packageName + " to " + session.getHost());
+				scpDir(session, source, "/usr/local/" + packageName);
+				// TODO: Parametrise this!
+				log.info("Executing " + packageName);
+				exec(session, "/usr/local/" + packageName + '/' + packageName);
+			} catch (JSchException | IOException | SftpException e) {
+				e.printStackTrace();
+				log.error(e.getMessage());
+			}
 		}
 	}
 
@@ -90,24 +101,22 @@ public class RiotCtlTool implements Closeable {
 
 	}
 
-	public void install(File source) {
-
-	}
-
-	public void uninstall() {
-
-	}
-
-	private void copy(File source) {
+	public void install(File source, File systemdConf) {
 		for (Session session : sessions) {
 			try {
 				log.info("Copying " + packageName + " to " + session.getHost());
 				scpDir(session, source, "/usr/local/" + packageName);
-			} catch (Exception e) {
+				log.info("Setting up service " + systemdConf.getName());
+				scp(session, systemdConf, "/etc/systemd/system/");
+			} catch (JSchException | IOException | SftpException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
 			}
 		}
+	}
+
+	public void uninstall() {
+
 	}
 
 	@Override
@@ -175,18 +184,39 @@ public class RiotCtlTool implements Closeable {
 		}
 	}
 
-	private void scpDir(Session session, File lDir, String rDir) throws JSchException, IOException {
+	private void scpDir(Session session, File lDir, String rPath) throws JSchException, SftpException, IOException {
+		ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
+		channel.setPtyType("vanilla");
+		channel.setEnv("LC_ALL", "en_US.UTF-8");
+		channel.setInputStream(null);
+		channel.connect();
+		scpDirInternal(channel, lDir, rPath);
+	}
+
+	private void scpDirInternal(ChannelSftp channel, File lDir, String rPath) throws JSchException, SftpException, IOException {
+		log.info(rPath);
+		channel.mkdir(rPath);
+		channel.cd(rPath);
 		for (File lFile : lDir.listFiles()) {
-			final String rFile = rDir + '/' + lFile.getName();
 			if (lFile.isDirectory()) {
-				scp(session, lFile, rFile);
+				scpDirInternal(channel, lFile, rPath  + '/' + lFile.getName());
 			} else {
-				scpDir(session, lFile, rFile);
+				channel.put(new FileInputStream(lFile), lFile.getName());
 			}
 		}
 	}
 
-	private void scp(Session session, File lFile, String rFileName) throws JSchException, IOException {
+	private void scp(Session session, File lFile, String rpath) throws JSchException, SftpException, IOException {
+		ChannelSftp channel = (ChannelSftp) session.openChannel("sftp");
+		channel.setPtyType("vanilla");
+		channel.setEnv("LC_ALL", "en_US.UTF-8");
+		channel.setInputStream(null);
+		channel.connect();
+		channel.cd(rpath);
+		channel.put(new FileInputStream(lFile), lFile.getName());
+	}
+
+	private void scpx(Session session, File lFile, String rFileName) throws JSchException, IOException {
 		ChannelExec channel = (ChannelExec) session.openChannel("exec");
 		channel.setPtyType("vanilla");
 		channel.setEnv("LC_ALL", "en_US.UTF-8");
@@ -289,6 +319,7 @@ public class RiotCtlTool implements Closeable {
 		targets.add(target);
 		RiotCtlTool tool = new RiotCtlTool("test", targets, log);
 		tool.ensurePackages("oracle-java8-jdk wiringpi");
+		tool.run(new File(args[0]));
 		tool.close();
 		log.info("done");
 	}
