@@ -2,7 +2,7 @@ package riot.riotctl;
 
 public class Target {
 
-	public enum DiscoveryMethod {hostname}
+	public enum DiscoveryMethod {host, mdns, mdns_then_host}
 	
 	public Target(final DiscoveryMethod method, final String hostname, final String username, final String password) {
 		this.hostname = hostname;
