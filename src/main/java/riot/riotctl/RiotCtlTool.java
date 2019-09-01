@@ -6,19 +6,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.jcraft.jsch.ChannelExec;
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
-import com.jcraft.jsch.SftpException;
 
 import riot.riotctl.steps.SocksProxy;
 
@@ -108,7 +102,7 @@ public class RiotCtlTool implements Closeable {
 				scpDir(session, source, "/usr/local/" + packageName);
 				log.info("Setting up service " + systemdConf.getName());
 				scpFile(session, systemdConf, "/etc/systemd/system/");
-				//TODO: Activate service
+				exec(session, "sudo service " + systemdConf.getName() + " start");
 			} catch (JSchException | IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -278,9 +272,13 @@ public class RiotCtlTool implements Closeable {
 		List<Target> targets = new ArrayList<>();
 		Target target = new Target(null, "raspberrypi.local", "pi", "raspberry");
 		targets.add(target);
-		RiotCtlTool tool = new RiotCtlTool("test", targets, log);
+
+		File stageDir = new File(args[0]);
+		File svcFile = new File(args[1]);
+
+		RiotCtlTool tool = new RiotCtlTool(svcFile.getName(), targets, log);
 		tool.ensurePackages("oracle-java8-jdk wiringpi");
-		tool.install(new File(args[0]), new File(args[1]));
+		tool.install(stageDir, svcFile);
 		tool.close();
 		log.info("done");
 	}
