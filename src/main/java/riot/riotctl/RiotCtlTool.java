@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -17,6 +18,9 @@ import com.jcraft.jsch.Session;
 import riot.riotctl.steps.SocksProxy;
 
 public class RiotCtlTool implements Closeable {
+
+	private static final String PTY_TYPE = "vanilla";
+	private static final String LOCALE = "en_GB.UTF-8";
 
 	private JSch jsch = new JSch();
 
@@ -62,10 +66,10 @@ public class RiotCtlTool implements Closeable {
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + packages;
 
 				// Update package list if it's over a month old:
-				exec(session, "find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;");
+				exec(session, "find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;", false);
 
 				// Update the packages:
-				exec(session, aptInstallCmd);
+				exec(session, aptInstallCmd, true);
 
 				session.delPortForwardingR(8080);
 				proxy.close();
@@ -83,7 +87,7 @@ public class RiotCtlTool implements Closeable {
 				scpDir(session, source, "/usr/local/" + packageName);
 				// TODO: Parametrise this!
 				log.info("Executing " + packageName);
-				exec(session, "/usr/local/" + packageName + '/' + packageName);
+				exec(session, "/usr/local/" + packageName + '/' + packageName, true);
 			} catch (JSchException | IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -100,9 +104,9 @@ public class RiotCtlTool implements Closeable {
 			try {
 				log.info("Copying " + packageName + " to " + session.getHost());
 				scpDir(session, source, "/usr/local/" + packageName);
-				log.info("Setting up service " + systemdConf.getName());
+				log.info("Setting up service " + packageName);
 				scpFile(session, systemdConf, "/etc/systemd/system/");
-				exec(session, "sudo service " + systemdConf.getName() + " start");
+				exec(session, "sudo systemctl enable " + packageName, true);
 			} catch (JSchException | IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -111,7 +115,15 @@ public class RiotCtlTool implements Closeable {
 	}
 
 	public void uninstall() {
-
+		for (Session session : sessions) {
+			try {
+				log.info("Removing service " + packageName);
+				exec(session, "sudo systemctl disable " + packageName, true);
+			} catch (JSchException | IOException e) {
+				e.printStackTrace();
+				log.error(e.getMessage());
+			}
+		}
 	}
 
 	@Override
@@ -122,45 +134,61 @@ public class RiotCtlTool implements Closeable {
 		}
 	}
 
-	private int exec(Session session, String command) throws JSchException, IOException {
+	private int exec(Session session, String command, boolean checkRc) throws JSchException, IOException {
 		ChannelExec channel = (ChannelExec) session.openChannel("exec");
-		channel.setPtyType("vanilla");
-		channel.setEnv("LC_ALL", "en_US.UTF-8");
+		channel.setPtyType(PTY_TYPE);
+		channel.setEnv("LC_ALL", LOCALE);
 		channel.setInputStream(null);
 		channel.setCommand(command);
 
-		channel.connect(3000);
-		logOutput(channel);
-
-		channel.disconnect();
-		return channel.getExitStatus();
-	}
-
-	private void logOutput(ChannelExec channel) throws IOException {
 		InputStream in = channel.getInputStream();
+		InputStream err = channel.getExtInputStream();
+		StringBuilder result = new StringBuilder();
+		int rc = Integer.MIN_VALUE;
+
+		channel.connect(3000);
+
 		byte[] tmp = new byte[1024];
 		while (true) {
 			while (in.available() > 0) {
 				int i = in.read(tmp, 0, 1024);
 				if (i < 0)
 					break;
-				log.debug(new String(tmp, 0, i));
+				result.append(new String(tmp, 0, i).trim());
+			}
+			while (err.available() > 0) {
+				int i = err.read(tmp, 0, 1024);
+				if (i < 0)
+					break;
+				result.append(new String(tmp, 0, i));
 			}
 			if (channel.isClosed()) {
-				if (in.available() > 0)
+				if ((in.available() > 0) || (err.available() > 0))
 					continue;
+				rc = channel.getExitStatus();
 				break;
 			}
 			try {
-				Thread.sleep(150);
-			} catch (InterruptedException e) {
-				log.error(e.getMessage());
+				Thread.sleep(1000);
+			} catch (Exception ee) {
 			}
 		}
+
+		if (checkRc && rc != 0) {
+			if (result.length() > 0)
+				log.error(result.toString());
+			throw new IOException("Operation returned exit status " + rc);
+		} else {
+			if (result.length() > 0)
+				log.debug(result.toString());
+		}
+
+		channel.disconnect();
+		return rc;
 	}
 
 	private void scpDir(Session session, File lDir, String rDir) throws JSchException, IOException {
-		exec(session, "sudo mkdir " + rDir);
+		exec(session, "sudo mkdir -p " + rDir, true);
 		for (File lFile : lDir.listFiles()) {
 			final String rFile = rDir + '/' + lFile.getName();
 			if (lFile.isDirectory()) {
@@ -173,8 +201,8 @@ public class RiotCtlTool implements Closeable {
 
 	private void scpFile(Session session, File lFile, String rFileName) throws JSchException, IOException {
 		ChannelExec channel = (ChannelExec) session.openChannel("exec");
-		channel.setPtyType("vanilla");
-		channel.setEnv("LC_ALL", "en_US.UTF-8");
+		channel.setPtyType(PTY_TYPE);
+		channel.setEnv("LC_ALL", LOCALE);
 		channel.setInputStream(null);
 
 		// exec 'scp -t rfile' remotely
@@ -276,7 +304,7 @@ public class RiotCtlTool implements Closeable {
 		File stageDir = new File(args[0]);
 		File svcFile = new File(args[1]);
 
-		RiotCtlTool tool = new RiotCtlTool(svcFile.getName(), targets, log);
+		RiotCtlTool tool = new RiotCtlTool(svcFile.getName().replace(".service", ""), targets, log);
 		tool.ensurePackages("oracle-java8-jdk wiringpi");
 		tool.install(stageDir, svcFile);
 		tool.close();
