@@ -66,6 +66,7 @@ public class RiotCtlTool implements Closeable {
 				log.info("Running service " + packageName);
 				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
 				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
+				client.exec("sudo systemctl daemon-reload", true);
 				client.exec("sudo systemctl start " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -86,6 +87,7 @@ public class RiotCtlTool implements Closeable {
 				log.info("Setting up service " + packageName);
 				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
 				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
+				client.exec("sudo systemctl daemon-reload", true);
 				client.exec("sudo systemctl enable " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
