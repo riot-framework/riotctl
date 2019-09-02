@@ -8,6 +8,7 @@ import java.util.List;
 
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
+import riot.riotctl.internal.SystemdConfig;
 
 public class RiotCtlTool implements Closeable {
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
@@ -62,9 +63,10 @@ public class RiotCtlTool implements Closeable {
 			try {
 				log.info("Copying " + packageName + " to " + client.getHost());
 				client.scpDir(source, "/usr/local/" + packageName);
-				// TODO: Parametrise this!
-				log.info("Executing " + packageName);
-				client.exec("/usr/local/" + packageName + '/' + packageName, true);
+				log.info("Running service " + packageName);
+				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
+				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
+				client.exec("sudo systemctl start " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -76,13 +78,14 @@ public class RiotCtlTool implements Closeable {
 
 	}
 
-	public void install(File source, File systemdConf) {
+	public void install(File source) {
 		for (SSHClient client : clients) {
 			try {
 				log.info("Copying " + packageName + " to " + client.getHost());
 				client.scpDir(source, "/usr/local/" + packageName);
 				log.info("Setting up service " + packageName);
-				client.scpFile(systemdConf, "/etc/systemd/system/");
+				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
+				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
 				client.exec("sudo systemctl enable " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -118,11 +121,10 @@ public class RiotCtlTool implements Closeable {
 		targets.add(target);
 
 		File stageDir = new File(args[0]);
-		File svcFile = new File(args[1]);
 
-		RiotCtlTool tool = new RiotCtlTool(svcFile.getName().replace(".service", ""), targets, log);
-		tool.ensurePackages("oracle-java8-jdk wiringpi");
-		tool.install(stageDir, svcFile);
+		RiotCtlTool tool = new RiotCtlTool(args[1], targets, log);
+		//tool.ensurePackages("oracle-java8-jdk wiringpi");
+		tool.run(stageDir);
 		tool.close();
 		log.info("done");
 	}

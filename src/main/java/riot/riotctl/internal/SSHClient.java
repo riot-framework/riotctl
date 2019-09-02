@@ -185,10 +185,10 @@ public class SSHClient implements Closeable {
 		// send "C0644 filesize filename", where filename should not include '/'
 		long filesize = lFile.length();
 		command = "C0644 " + filesize + " ";
-		if (lFileName.lastIndexOf('/') > 0) {
-			command += lFileName.substring(lFileName.lastIndexOf('/') + 1);
+		if (rFileName.lastIndexOf('/') > 0) {
+			command += rFileName.substring(rFileName.lastIndexOf('/') + 1);
 		} else {
-			command += lFileName;
+			command += rFileName;
 		}
 		command += "\n";
 		out.write(command.getBytes());
@@ -211,6 +211,65 @@ public class SSHClient implements Closeable {
 		// send '\0'
 		buf[0] = 0;
 		out.write(buf, 0, 1);
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+		out.close();
+
+		channel.disconnect();
+	}
+
+	public void scpString(String payload, String rDirName, String rFileName) throws IOException {
+		final ChannelExec channel;
+
+		try {
+			channel = (ChannelExec) session.openChannel("exec");
+			channel.setPtyType(PTY_TYPE);
+			channel.setEnv("LC_ALL", LOCALE);
+			channel.setInputStream(null);
+		} catch (JSchException e) {
+			throw new IOException(e.getMessage(), e);
+		}
+
+		// exec 'scp -t rfile' remotely
+		rDirName = rDirName.replace("'", "'\"'\"'");
+		channel.setCommand("sudo scp -p -t '" + rDirName + "'");
+
+		OutputStream out = channel.getOutputStream();
+		InputStream in = channel.getInputStream();
+
+		try {
+			channel.connect(3000);
+		} catch (JSchException e) {
+			throw new IOException(e.getMessage(), e);
+		}
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		String command;
+
+		command = "T" + (System.currentTimeMillis() / 1000) + " 0";
+		command += (" " + (System.currentTimeMillis() / 1000) + " 0\n");
+		out.write(command.getBytes());
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		command = "C0644 " + payload.length() + " " + rFileName + "\n";
+		out.write(command.getBytes());
+		out.flush();
+		if (checkAck(in) != 0) {
+			return;
+		}
+
+		// send the content of payload as bytes
+		out.write(payload.getBytes("UTF-8"));
+
+		// send '\0'
+		out.write(0);
 		out.flush();
 		if (checkAck(in) != 0) {
 			return;
@@ -251,10 +310,14 @@ public class SSHClient implements Closeable {
 	public String getHost() {
 		return session.getHost();
 	}
+	public String getUsername() {
+		return session.getUserName();
+	}
 
 	@Override
 	public void close() throws IOException {
 		session.disconnect();
 	}
+
 
 }
