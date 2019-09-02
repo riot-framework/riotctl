@@ -1,6 +1,8 @@
-package riot.riotctl;
+package riot.riotctl.internal;
 
 import org.apache.commons.lang3.NotImplementedException;
+
+import riot.riotctl.Logger;
 
 class UserInfo implements com.jcraft.jsch.UserInfo {
 	private final Logger log;

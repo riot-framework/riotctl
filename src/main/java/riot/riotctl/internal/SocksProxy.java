@@ -1,28 +1,45 @@
-package riot.riotctl.steps;
+package riot.riotctl.internal;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.connectbot.simplesocks.Socks5Server;
 import org.connectbot.simplesocks.Socks5Server.ResponseCode;
 
 import riot.riotctl.Logger;
 
-public class SocksProxy implements Runnable, Closeable {
+public class SocksProxy implements Runnable {
+	private static SocksProxy instance;
 	private final ServerSocket serverSocket;
+	private final Set<SSHClient> clients = new HashSet<SSHClient>();
 	private final Logger log;
 	private int port;
 	private boolean running;
 
-	public SocksProxy(int port, Logger log) throws IOException {
-		this(port, port + 64, log);
+	/**
+	 * Ensure that at least one instance of the Socks proxy exists, returns its
+	 * port.
+	 * 
+	 * @param port
+	 *            the lowest port number to use for the proxy, e.g. 8080
+	 * @param log
+	 *            the logger class
+	 * @return a port number on which a Socks5 server is listening
+	 * @throws IOException
+	 */
+	public static synchronized SocksProxy ensureProxy(int port, Logger log) throws IOException {
+		if (instance != null) {
+			return instance;
+		}
+		instance = new SocksProxy(port, port + 128, log);
+		return instance;
 	}
 
 	public SocksProxy(int minPort, int maxPort, Logger log) throws IOException {
-		this.running = true;
 		this.serverSocket = getSocket(minPort, maxPort);
 		this.log = log;
 	}
@@ -83,8 +100,24 @@ public class SocksProxy implements Runnable, Closeable {
 		}).start();
 	}
 
-	public void close() throws IOException {
-		running = false;
-		serverSocket.close();
+	public synchronized void registerClient(SSHClient sshClient) {
+		clients.add(sshClient);
+		if (running = false) {
+			running = true;
+			new Thread(instance, "Socks5 Proxy").start();
+		}
+	}
+
+	public synchronized void unregisterClient(SSHClient sshClient) {
+		clients.remove(sshClient);
+		if (clients.isEmpty()) {
+			running = false;
+			try {
+				serverSocket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+				log.error("Unable to close proxy port: " + e.getMessage());
+			}
+		}
 	}
 }
