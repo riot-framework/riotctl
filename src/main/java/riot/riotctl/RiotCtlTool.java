@@ -62,10 +62,10 @@ public class RiotCtlTool implements Closeable {
 		for (SSHClient client : clients) {
 			try {
 				log.info("Copying " + packageName + " to " + client.getHost());
-				client.scpDir(source, "/usr/local/" + packageName);
+				client.copyDir(source, "/usr/local/" + packageName);
 				log.info("Running service " + packageName);
 				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
-				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
+				client.write(payload, "/etc/systemd/system/", packageName + ".service");
 				client.exec("sudo systemctl daemon-reload", true);
 				client.exec("sudo systemctl start " + packageName, true);
 			} catch (IOException e) {
@@ -83,10 +83,10 @@ public class RiotCtlTool implements Closeable {
 		for (SSHClient client : clients) {
 			try {
 				log.info("Copying " + packageName + " to " + client.getHost());
-				client.scpDir(source, "/usr/local/" + packageName);
+				client.copyDir(source, "/usr/local/" + packageName);
 				log.info("Setting up service " + packageName);
 				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
-				client.scpString(payload, "/etc/systemd/system/", packageName + ".service");
+				client.write(payload, "/etc/systemd/system/", packageName + ".service");
 				client.exec("sudo systemctl daemon-reload", true);
 				client.exec("sudo systemctl enable " + packageName, true);
 			} catch (IOException e) {
