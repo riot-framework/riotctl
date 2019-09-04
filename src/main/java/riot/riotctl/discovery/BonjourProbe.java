@@ -19,8 +19,8 @@ import javax.jmdns.ServiceEvent;
 import javax.jmdns.ServiceListener;
 
 import riot.riotctl.Logger;
-import riot.riotctl.StdOutLogger;
 import riot.riotctl.Target;
+import riot.riotctl.internal.StdOutLogger;
 
 public class BonjourProbe implements ServiceListener, Closeable {
 

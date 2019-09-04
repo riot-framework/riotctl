@@ -10,6 +10,7 @@ import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
+import riot.riotctl.internal.StdOutLogger;
 import riot.riotctl.internal.SystemdConfig;
 
 public class RiotCtlTool implements Closeable {

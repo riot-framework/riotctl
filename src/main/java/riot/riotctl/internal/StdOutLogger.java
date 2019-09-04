@@ -1,4 +1,6 @@
-package riot.riotctl;
+package riot.riotctl.internal;
+
+import riot.riotctl.Logger;
 
 public final class StdOutLogger extends Logger {
 

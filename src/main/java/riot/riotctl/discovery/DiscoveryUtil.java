@@ -8,9 +8,9 @@ import java.util.LinkedList;
 import java.util.List;
 
 import riot.riotctl.Logger;
-import riot.riotctl.StdOutLogger;
 import riot.riotctl.Target;
 import riot.riotctl.Target.DiscoveryMethod;
+import riot.riotctl.internal.StdOutLogger;
 
 public class DiscoveryUtil {
 
