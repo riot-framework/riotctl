@@ -8,7 +8,12 @@ public final class StdOutLogger extends Logger {
 	public void error(String s) {
 		System.err.println(s);
 	}
-
+	
+	@Override
+	public void warn(String s) {
+		System.err.println(s);
+	}
+	
 	@Override
 	public void info(String s) {
 		System.out.println(s);
@@ -18,5 +23,7 @@ public final class StdOutLogger extends Logger {
 	public void debug(String s) {
 		System.out.println(s);
 	}
+
+
 
 }

@@ -108,7 +108,7 @@ public class BonjourProbe implements ServiceListener, Closeable {
 
 	public List<HostInfo> getResults() {
 		if (results.size() == 0) {
-			log.error("No matching hosts found via mDNS.");
+			log.warn("No matching hosts found via mDNS.");
 		}
 		return results;
 	}

@@ -28,7 +28,7 @@ public class DiscoveryUtil {
 				if (hostinfo != null) {
 					results.add(hostinfo);
 				} else {
-					log.error("Host not found: " + target.getDevicename());
+					log.warn("Host not found: " + target.getDevicename());
 				}
 				break;
 			case MDNS:

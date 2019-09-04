@@ -8,6 +8,8 @@ import org.apache.commons.lang3.NotImplementedException;
 public abstract class Logger extends OutputStream {
 
 	public abstract void error(String s);
+	
+	public abstract void warn(String s);
 
 	public abstract void info(String s);
 

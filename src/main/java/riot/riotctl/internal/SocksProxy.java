@@ -116,7 +116,7 @@ public class SocksProxy implements Runnable {
 				serverSocket.close();
 			} catch (IOException e) {
 				e.printStackTrace();
-				log.error("Unable to close proxy port: " + e.getMessage());
+				log.warn("Unable to close proxy port: " + e.getMessage());
 			}
 		}
 	}
