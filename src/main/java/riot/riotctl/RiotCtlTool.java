@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import riot.riotctl.discovery.DiscoveryUtil;
+import riot.riotctl.discovery.HostInfo;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
 import riot.riotctl.internal.SystemdConfig;
@@ -20,9 +22,8 @@ public class RiotCtlTool implements Closeable {
 		this.packageName = packageName;
 		this.log = log;
 
-		for (Target target : targets) {
+		for (HostInfo target : DiscoveryUtil.discoverHostnames(log, targets)) {
 			try {
-				// new BonjourProbe(log, target).discover(5000);
 				clients.add(new SSHClient(target, log));
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -67,7 +68,8 @@ public class RiotCtlTool implements Closeable {
 				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
 				client.write(payload, "/etc/systemd/system/", packageName + ".service");
 				client.exec("sudo systemctl daemon-reload", true);
-				client.exec("sudo systemctl start " + packageName, true);
+				client.exec("sudo systemctl restart " + packageName, true);
+				client.exec("sudo journalctl -f -u " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -89,6 +91,7 @@ public class RiotCtlTool implements Closeable {
 				client.write(payload, "/etc/systemd/system/", packageName + ".service");
 				client.exec("sudo systemctl daemon-reload", true);
 				client.exec("sudo systemctl enable " + packageName, true);
+				client.exec("sudo systemctl start " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -101,6 +104,7 @@ public class RiotCtlTool implements Closeable {
 			try {
 				log.info("Removing service " + packageName);
 				client.exec("sudo systemctl disable " + packageName, true);
+				client.exec("sudo systemctl stop " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -125,7 +129,7 @@ public class RiotCtlTool implements Closeable {
 		File stageDir = new File(args[0]);
 
 		RiotCtlTool tool = new RiotCtlTool(args[1], targets, log);
-		//tool.ensurePackages("oracle-java8-jdk wiringpi");
+		// tool.ensurePackages("oracle-java8-jdk wiringpi");
 		tool.run(stageDir);
 		tool.close();
 		log.info("done");

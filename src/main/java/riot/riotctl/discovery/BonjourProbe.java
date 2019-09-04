@@ -7,76 +7,78 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceEvent;
 import javax.jmdns.ServiceListener;
-import javax.jmdns.ServiceTypeListener;
 
 import riot.riotctl.Logger;
 import riot.riotctl.StdOutLogger;
 import riot.riotctl.Target;
 
-public class BonjourProbe implements ServiceListener, ServiceTypeListener, Closeable {
+public class BonjourProbe implements ServiceListener, Closeable {
 
 	private static final String SERVICE = "_sftp-ssh._tcp.local.";
 	private final Logger log;
 	private final Target target;
-	private JmDNS jmdns;
+	private final List<JmDNS> mdnsInstances = new ArrayList<JmDNS>();
+	private final List<HostInfo> results = new ArrayList<HostInfo>();
 
-	public BonjourProbe(Logger log, Target target) {
-		this(log, target, guessNetworkAdapter(log, target));
+	public BonjourProbe(Logger log, Target target, boolean allAdapters) {
+		this(log, target, allAdapters ? findAdapters(log) : findMostLikelyAdapters(log));
 	}
 
-	public BonjourProbe(Logger log, Target target, InetAddress networkAdapter) {
+	public BonjourProbe(Logger log, Target target, Set<InetAddress> networkAdapters) {
 		super();
 		this.log = log;
 		this.target = target;
 		try {
-			log.info("Probing interface " + networkAdapter + " for service " + SERVICE);
-			this.jmdns = JmDNS.create(networkAdapter);
-			jmdns.addServiceListener(SERVICE, this);
-			jmdns.addServiceTypeListener(this);
+			log.info("Probing " + networkAdapters.size() + " interfaces for service " + SERVICE);
+			for (InetAddress networkAdapter : networkAdapters) {
+				JmDNS instance = JmDNS.create(networkAdapter);
+				instance.addServiceListener(SERVICE, this);
+				mdnsInstances.add(instance);
+			}
+
 		} catch (IOException e) {
-			log.error("Unable to find adapter " + networkAdapter);
+			e.printStackTrace();
+			log.error(e.getMessage());
 		}
 	}
 
-	private static InetAddress guessNetworkAdapter(Logger log, Target target) {
-		InetAddress candidate = null;
+	private static Set<InetAddress> findMostLikelyAdapters(Logger log) {
+		Set<InetAddress> results = new HashSet<InetAddress>();
 
 		// Bonjour range (IP4)
-		candidate = findNetworkAdapter(log, (byte) 169, (byte) 254);
-		if (candidate != null)
-			return candidate;
+		results.addAll(findAdapters(log, (byte) 169, (byte) 254));
 
 		// Bonjour range (IP6)
-		candidate = findNetworkAdapter(log, (byte) 0xfe, (byte) 0x80);
-		if (candidate != null)
-			return candidate;
+		results.addAll(findAdapters(log, (byte) 0xfe, (byte) 0x80));
 
 		// Class C private network
-		candidate = findNetworkAdapter(log, (byte) 192, (byte) 168);
-		if (candidate != null)
-			return candidate;
+		results.addAll(findAdapters(log, (byte) 192, (byte) 168));
 
 		// Class A private network
-		candidate = findNetworkAdapter(log, (byte) 10);
-		if (candidate != null)
-			return candidate;
+		results.addAll(findAdapters(log, (byte) 10));
 
 		try {
 			log.info("Probing using default address.");
-			return InetAddress.getLocalHost();
+			results.add(InetAddress.getLocalHost());
 		} catch (UnknownHostException e) {
 			log.error(e.getMessage());
-			return InetAddress.getLoopbackAddress();
 		}
+
+		return results;
 	}
 
-	private static InetAddress findNetworkAdapter(Logger log, byte... ipStartsWith) {
+	private static Set<InetAddress> findAdapters(Logger log, byte... ipStartsWith) {
+		Set<InetAddress> results = new HashSet<InetAddress>();
 		try {
 			Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
 			nicLoop: for (NetworkInterface nic : Collections.list(nics)) {
@@ -88,28 +90,36 @@ public class BonjourProbe implements ServiceListener, ServiceTypeListener, Close
 						if (ifBytes[i] != ipStartsWith[i])
 							continue ipLoop;
 					}
-					log.info("Choosing interface " + nic.getDisplayName() + " for probing.");
-					return ifAddress.getAddress();
+					log.debug("Selecting interface " + nic.getDisplayName() + " (" + ifAddress.getAddress()
+							+ ") for probing.");
+					results.add(ifAddress.getAddress());
 				}
 			}
-			return null;
+			return results;
 		} catch (SocketException e) {
 			log.error(e.getMessage());
+			return results;
 		}
-		return null;
 	}
 
-	public void discover(long millis) {
-		try {
-			Thread.sleep(millis);
-		} catch (InterruptedException e) {
-			log.error("Interrupted while discovering devices");
+	public List<HostInfo> getResults() {
+		if (results.size() == 0) {
+			log.error("No matching hosts found via mDNS.");
 		}
+		return results;
 	}
 
 	@Override
 	public void close() throws IOException {
-		jmdns.close();
+		for (JmDNS jmDNS : mdnsInstances) {
+			new Thread(() -> {
+				try {
+					jmDNS.close();
+				} catch (IOException e) {
+					log.error(e.getMessage());
+				}
+			}).start();
+		}
 	}
 
 	@Override
@@ -124,24 +134,26 @@ public class BonjourProbe implements ServiceListener, ServiceTypeListener, Close
 
 	@Override
 	public void serviceResolved(ServiceEvent evt) {
-		log.info("Resolved: " + evt);
-	}
-
-	@Override
-	public void serviceTypeAdded(ServiceEvent evt) {
-		log.debug("Discovered service type " + evt.getType());
-	}
-
-	@Override
-	public void subTypeForServiceTypeAdded(ServiceEvent evt) {
-
+		log.debug("Service Resolved: " + evt);
+		if (evt.getName().equals(target.getDevicename())) {
+			for (InetAddress addr : evt.getInfo().getInetAddresses()) {
+				log.info("Found device through mDNS: " + addr);
+				results.add(new HostInfo(addr, target.getUsername(), target.getPassword()));
+			}
+			this.notifyAll();
+		}
 	}
 
 	public static void main(String[] args) throws IOException {
 		StdOutLogger log = new StdOutLogger();
-		Target target = new Target(null, "raspberrypi", "raspberry", "pi");
-		BonjourProbe probe = new BonjourProbe(log, target);
-		probe.discover(5000);
+		Target target = new Target(null, args[0], "raspberry", "pi");
+		BonjourProbe probe = new BonjourProbe(log, target, true);
+
+		log.info("Found: ");
+		for (HostInfo addr : probe.getResults()) {
+			log.info(" - " + addr.getHost());
+		}
+
 		probe.close();
 		log.info("done");
 	}

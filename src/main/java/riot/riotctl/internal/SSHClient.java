@@ -14,7 +14,7 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 
 import riot.riotctl.Logger;
-import riot.riotctl.Target;
+import riot.riotctl.discovery.HostInfo;
 
 /**
  * Holds an SSH connection to a host and allows files to be copied to it, and
@@ -23,7 +23,7 @@ import riot.riotctl.Target;
 public class SSHClient implements Closeable {
 	private static final String PTY_TYPE = "vanilla";
 	private static final String LOCALE = "en_GB.UTF-8";
-	
+
 	private static final int TIMEOUT = 8000;
 
 	private static JSch jsch = new JSch();
@@ -32,8 +32,8 @@ public class SSHClient implements Closeable {
 	private final Logger log;
 	private SocksProxy proxy;
 
-	public SSHClient(Target target, Logger log) throws IOException {
-		this(target.hostname, target.username, target.password, log);
+	public SSHClient(HostInfo target, Logger log) throws IOException {
+		this(target.getHost().getHostName(), target.getUsername(), target.getPassword(), log);
 	}
 
 	public SSHClient(String hostname, String username, String password, Logger log) throws IOException {
@@ -115,7 +115,7 @@ public class SSHClient implements Closeable {
 
 		if (checkRc && rc != 0) {
 			throw new IOException("Operation returned exit status " + rc);
-		} 
+		}
 
 		channel.disconnect();
 		return rc;
