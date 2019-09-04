@@ -6,38 +6,38 @@ import riot.riotctl.Logger;
 
 class UserInfo implements com.jcraft.jsch.UserInfo {
 	private final Logger log;
+	private final String secret;
 
-	public UserInfo(Logger log) {
+	public UserInfo(Logger log, String secret) {
 		super();
 		this.log = log;
+		this.secret = secret;
 	}
 
 	@Override
 	public String getPassphrase() {
-		return null;
+		return secret;
 	}
 
 	@Override
 	public String getPassword() {
-		return null;
+		return secret;
 	}
 
 	@Override
 	public boolean promptPassword(String message) {
-		log.error(message);
-		throw new NotImplementedException("Not Implemented: Unable to interactively prompt password.");
+		return true;
 	}
 
 	@Override
 	public boolean promptPassphrase(String message) {
-		log.error(message);
-		throw new NotImplementedException("Not Implemented: Unable to interactively prompt passphrase.");
+		return true;
 	}
 
 	@Override
 	public boolean promptYesNo(String message) {
 		log.error(message);
-		throw new NotImplementedException("Not Implemented: Unable to interactively prompt passphrase.");
+		throw new NotImplementedException("Not Implemented: Unable to interactively prompt.");
 	}
 
 	@Override

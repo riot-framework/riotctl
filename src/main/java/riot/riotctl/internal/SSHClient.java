@@ -23,6 +23,8 @@ import riot.riotctl.Target;
 public class SSHClient implements Closeable {
 	private static final String PTY_TYPE = "vanilla";
 	private static final String LOCALE = "en_GB.UTF-8";
+	
+	private static final int TIMEOUT = 8000;
 
 	private static JSch jsch = new JSch();
 
@@ -41,9 +43,8 @@ public class SSHClient implements Closeable {
 		try {
 			session = jsch.getSession(username, hostname);
 			session.setConfig("StrictHostKeyChecking", "no");
-			session.setPassword(password);
-			session.setUserInfo(new UserInfo(log));
-			session.connect(8000);
+			session.setUserInfo(new UserInfo(log, password));
+			session.connect(TIMEOUT);
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);
 		}
@@ -78,7 +79,6 @@ public class SSHClient implements Closeable {
 
 		InputStream in = channel.getInputStream();
 		InputStream err = channel.getExtInputStream();
-		StringBuilder result = new StringBuilder();
 		int rc = Integer.MIN_VALUE;
 
 		try {
@@ -93,13 +93,13 @@ public class SSHClient implements Closeable {
 				int i = in.read(tmp, 0, 1024);
 				if (i < 0)
 					break;
-				result.append(new String(tmp, 0, i).trim());
+				log.debug(new String(tmp, 0, i).trim());
 			}
 			while (err.available() > 0) {
 				int i = err.read(tmp, 0, 1024);
 				if (i < 0)
 					break;
-				result.append(new String(tmp, 0, i));
+				log.error(new String(tmp, 0, i));
 			}
 			if (channel.isClosed()) {
 				if ((in.available() > 0) || (err.available() > 0))
@@ -114,13 +114,8 @@ public class SSHClient implements Closeable {
 		}
 
 		if (checkRc && rc != 0) {
-			if (result.length() > 0)
-				log.error(result.toString());
 			throw new IOException("Operation returned exit status " + rc);
-		} else {
-			if (result.length() > 0)
-				log.debug(result.toString());
-		}
+		} 
 
 		channel.disconnect();
 		return rc;
@@ -235,6 +230,11 @@ public class SSHClient implements Closeable {
 		channel.disconnect();
 	}
 
+	/**
+	 * Open and configures an ExecChannel (PTY type, Locale...)
+	 * 
+	 * @throws IOException
+	 */
 	private ChannelExec openExecChannel() throws IOException {
 		try {
 			ChannelExec channel = (ChannelExec) session.openChannel("exec");
