@@ -10,8 +10,8 @@ import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
-import riot.riotctl.internal.StdOutLogger;
 import riot.riotctl.internal.SystemdConfig;
+import riot.riotctl.logger.StdOutLogger;
 
 public class RiotCtlTool implements Closeable {
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
@@ -23,9 +23,9 @@ public class RiotCtlTool implements Closeable {
 		this.packageName = packageName;
 		this.log = log;
 
-		for (HostInfo target : DiscoveryUtil.discoverHostnames(log, targets)) {
+		for (HostInfo hostinfo : DiscoveryUtil.discoverHostnames(log, targets)) {
 			try {
-				clients.add(new SSHClient(target, log));
+				clients.add(new SSHClient(hostinfo, log));
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());

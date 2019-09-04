@@ -10,7 +10,7 @@ import java.util.List;
 import riot.riotctl.Logger;
 import riot.riotctl.Target;
 import riot.riotctl.Target.DiscoveryMethod;
-import riot.riotctl.internal.StdOutLogger;
+import riot.riotctl.logger.StdOutLogger;
 
 public class DiscoveryUtil {
 

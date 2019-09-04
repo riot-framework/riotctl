@@ -43,7 +43,7 @@ public class SSHClient implements Closeable {
 		try {
 			session = jsch.getSession(username, hostname);
 			session.setConfig("StrictHostKeyChecking", "no");
-			session.setUserInfo(new UserInfo(log, password));
+			session.setUserInfo(new SSHUserInfo(log, password));
 			session.connect(TIMEOUT);
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);

@@ -1,4 +1,4 @@
-package riot.riotctl.internal;
+package riot.riotctl.logger;
 
 import riot.riotctl.Logger;
 

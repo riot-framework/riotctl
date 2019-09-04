@@ -4,11 +4,11 @@ import org.apache.commons.lang3.NotImplementedException;
 
 import riot.riotctl.Logger;
 
-class UserInfo implements com.jcraft.jsch.UserInfo {
+class SSHUserInfo implements com.jcraft.jsch.UserInfo {
 	private final Logger log;
 	private final String secret;
 
-	public UserInfo(Logger log, String secret) {
+	public SSHUserInfo(Logger log, String secret) {
 		super();
 		this.log = log;
 		this.secret = secret;

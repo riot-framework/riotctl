@@ -20,7 +20,7 @@ import javax.jmdns.ServiceListener;
 
 import riot.riotctl.Logger;
 import riot.riotctl.Target;
-import riot.riotctl.internal.StdOutLogger;
+import riot.riotctl.logger.StdOutLogger;
 
 public class BonjourProbe implements ServiceListener, Closeable {
 
@@ -30,6 +30,10 @@ public class BonjourProbe implements ServiceListener, Closeable {
 	private final List<JmDNS> mdnsInstances = new ArrayList<JmDNS>();
 	private final List<HostInfo> results = new ArrayList<HostInfo>();
 
+	public BonjourProbe(Logger log, Target target) {
+		this(log, target, findAdapters(log));
+	}
+	
 	public BonjourProbe(Logger log, Target target, boolean allAdapters) {
 		this(log, target, allAdapters ? findAdapters(log) : findMostLikelyAdapters(log));
 	}
