@@ -8,19 +8,24 @@ import java.util.List;
 
 import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
+import riot.riotctl.internal.PackageConfig;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
-import riot.riotctl.internal.SystemdConfig;
 import riot.riotctl.logger.StdOutLogger;
 
 public class RiotCtlTool implements Closeable {
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
 	private final String packageName;
+	private final String dependencies;
+	private final File stageDir;
 	private final Logger log;
 
-	public RiotCtlTool(String packageName, List<Target> targets, Logger log) {
+	public RiotCtlTool(String packageName, String packageDependencies, File stageDir, List<Target> targets,
+			Logger log) {
 		super();
 		this.packageName = packageName;
+		this.dependencies = packageDependencies;
+		this.stageDir = stageDir;
 		this.log = log;
 
 		for (HostInfo hostinfo : DiscoveryUtil.discoverHostnames(log, targets)) {
@@ -33,42 +38,12 @@ public class RiotCtlTool implements Closeable {
 		}
 	}
 
-	public void ensurePackages(String packages) {
+	public void run() {
 		for (SSHClient client : clients) {
 			try {
-				client.setProxy(SocksProxy.ensureProxy(8080, log));
-
-				// TODO: Skip this if it has been checked before (use a file in etc)
-				log.info("Checking dependencies " + packages + " on " + client.getHost());
-
-				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
-				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
-				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + packages;
-
-				// Update package list if it's over a month old:
-				client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;", false);
-
-				// Update the packages:
-				client.exec(aptInstallCmd, true);
-
-				client.resetProxy();
-
-			} catch (Exception e) {
-				e.printStackTrace();
-				log.error(e.getMessage());
-			}
-		}
-	}
-
-	public void run(File source) {
-		for (SSHClient client : clients) {
-			try {
-				log.info("Copying " + packageName + " to " + client.getHost());
-				client.copyDir(source, "/usr/local/" + packageName);
-				log.info("Running service " + packageName);
-				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
-				client.write(payload, "/etc/systemd/system/", packageName + ".service");
-				client.exec("sudo systemctl daemon-reload", true);
+				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
+				ensurePackages(client, log, pkgConf, dependencies);
+				deploy(client, log, pkgConf, stageDir);
 				client.exec("sudo systemctl restart " + packageName, true);
 				client.exec("sudo journalctl -f -u " + packageName, true);
 			} catch (IOException e) {
@@ -78,19 +53,16 @@ public class RiotCtlTool implements Closeable {
 		}
 	}
 
-	public void debug(File source) {
+	public void debug() {
 
 	}
 
-	public void install(File source) {
+	public void install() {
 		for (SSHClient client : clients) {
 			try {
-				log.info("Copying " + packageName + " to " + client.getHost());
-				client.copyDir(source, "/usr/local/" + packageName);
-				log.info("Setting up service " + packageName);
-				String payload = new SystemdConfig(packageName, client.getUsername()).toString();
-				client.write(payload, "/etc/systemd/system/", packageName + ".service");
-				client.exec("sudo systemctl daemon-reload", true);
+				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
+				ensurePackages(client, log, pkgConf, dependencies);
+				deploy(client, log, pkgConf, stageDir);
 				client.exec("sudo systemctl enable " + packageName, true);
 				client.exec("sudo systemctl start " + packageName, true);
 			} catch (IOException e) {
@@ -121,6 +93,34 @@ public class RiotCtlTool implements Closeable {
 		}
 	}
 
+	private static void ensurePackages(SSHClient client, Logger log, PackageConfig pkgConf, String packages) throws IOException {
+		client.setProxy(SocksProxy.ensureProxy(8080, log));
+
+		// TODO: Skip this if it has been checked before (use a file in etc):
+		// String pkgChecked = client.read(pkgConf.prereqFile);
+		log.info("Checking dependencies " + packages + " on " + client.getHost());
+
+		final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
+		final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
+		final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + packages;
+
+		// Update package list if it's over a month old:
+		client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;", false);
+
+		// Update the packages:
+		client.exec(aptInstallCmd, true);
+		client.resetProxy();
+	}
+
+	private static void deploy(SSHClient client, Logger log, PackageConfig pkgConf, File source) throws IOException {
+		log.info("Copying " + pkgConf.packageName + " to " + client.getHost());
+		client.copyDir(source, pkgConf.binDir);
+		
+		log.info("Setting up service " + pkgConf.packageName);
+		client.write(pkgConf.toSystemdFile(), "/etc/systemd/system/", pkgConf.packageName + ".service");
+		client.exec("sudo systemctl daemon-reload", true);
+	}
+
 	public static void main(String[] args) throws IOException {
 		StdOutLogger log = new StdOutLogger();
 		List<Target> targets = new ArrayList<>();
@@ -129,9 +129,8 @@ public class RiotCtlTool implements Closeable {
 
 		File stageDir = new File(args[0]);
 
-		RiotCtlTool tool = new RiotCtlTool(args[1], targets, log);
-		// tool.ensurePackages("oracle-java8-jdk wiringpi");
-		tool.run(stageDir);
+		RiotCtlTool tool = new RiotCtlTool(args[1], "oracle-java8-jdk wiringpi", stageDir, targets, log);
+		tool.run();
 		tool.close();
 		log.info("done");
 	}
