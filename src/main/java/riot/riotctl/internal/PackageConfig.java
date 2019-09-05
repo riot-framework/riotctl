@@ -3,11 +3,15 @@ package riot.riotctl.internal;
 public class PackageConfig {
 	public final String packageName, user;
 	public final String binDir, envDir, runDir;
-	public final String startScript;
+	public final String startScript, startParams;
 
 	private static final char LF = '\n';
 
 	public PackageConfig(String packageName, String user) {
+		this(packageName, user, "");
+	}
+
+	public PackageConfig(String packageName, String user, String startParams) {
 		super();
 		this.packageName = packageName;
 		this.user = user;
@@ -15,6 +19,7 @@ public class PackageConfig {
 		this.envDir = "/etc/default/" + packageName;
 		this.runDir = "/run/" + packageName;
 		this.startScript = binDir + "/bin/" + packageName;
+		this.startParams = startParams;
 	}
 
 	public String toSystemdFile() {
@@ -26,8 +31,10 @@ public class PackageConfig {
 		sb.append("[Service]").append(LF);
 		sb.append("Type=simple").append(LF);
 		sb.append("WorkingDirectory=" + binDir).append(LF);
+		if (startParams != null && startParams.length() > 0)
+			sb.append("Environment=START_PARAMS=" + startParams).append(LF);
 		// sb.append("EnvironmentFile=" + envDir).append(LF);
-		sb.append("ExecStart=/bin/bash " + startScript).append(LF);
+		sb.append("ExecStart=/bin/bash " + startScript + " '${START_PARAMS}'").append(LF);
 		sb.append("ExecReload=/bin/kill -HUP $MAINPID").append(LF);
 		sb.append("Restart=always").append(LF);
 		sb.append("RestartSec=60").append(LF);
