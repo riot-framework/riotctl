@@ -1,9 +1,9 @@
 package riot.riotctl;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import riot.riotctl.discovery.DiscoveryUtil;
@@ -13,7 +13,7 @@ import riot.riotctl.internal.SSHClient;
 import riot.riotctl.internal.SocksProxy;
 import riot.riotctl.logger.StdOutLogger;
 
-public class RiotCtlTool implements Closeable {
+public class RiotCtlTool {
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
 	private final String packageName;
 	private final String dependencies;
@@ -58,6 +58,11 @@ public class RiotCtlTool implements Closeable {
 		return this;
 	}
 
+	public RiotCtlTool stop() {
+		// TODO
+		return this;
+	}
+
 	public RiotCtlTool install() {
 		for (SSHClient client : clients) {
 			try {
@@ -86,12 +91,12 @@ public class RiotCtlTool implements Closeable {
 		return this;
 	}
 
-	@Override
-	public void close() throws IOException {
+	public RiotCtlTool close() throws IOException {
 		for (SSHClient client : clients) {
 			log.info("Closing session to " + client.getHost());
 			client.close();
 		}
+		return this;
 	}
 
 	public RiotCtlTool ensurePackages() {
@@ -122,7 +127,8 @@ public class RiotCtlTool implements Closeable {
 	}
 
 	public RiotCtlTool deploy() {
-		for (SSHClient client : clients) {
+		for (Iterator<SSHClient> iterator = clients.iterator(); iterator.hasNext();) {
+			SSHClient client = iterator.next();
 			try {
 				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
 				log.info("Copying " + pkgConf.packageName + " to " + client.getHost());
@@ -134,6 +140,14 @@ public class RiotCtlTool implements Closeable {
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
+				// No point in attempting to use this client, since copying failed: Close and
+				// remove connection.
+				try {
+					client.close();
+				} catch (IOException e1) {
+					log.warn(e1.getMessage());
+				}
+				iterator.remove();
 			}
 		}
 		return this;
