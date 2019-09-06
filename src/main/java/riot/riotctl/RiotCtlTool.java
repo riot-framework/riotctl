@@ -53,12 +53,9 @@ public class RiotCtlTool {
 					continue;
 				}
 
-				client.setProxy(SocksProxy.ensureProxy(8080, log));
-
-				// TODO: Skip this if it has been checked before (use a file in etc):
-				// String pkgChecked = client.read(pkgConf.prereqFile);
 				log.info("Checking dependencies " + dependencies + " on " + client.getHost());
-
+				client.setProxy(SocksProxy.ensureProxy(8080, log));
+				
 				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
