@@ -24,8 +24,6 @@ public class SSHClient implements Closeable {
 	private static final String PTY_TYPE = "vanilla";
 	private static final String LOCALE = "en_GB.UTF-8";
 
-	private static final int TIMEOUT = 8000;
-
 	private static JSch jsch = new JSch();
 
 	private final Session session;
@@ -44,7 +42,7 @@ public class SSHClient implements Closeable {
 			session = jsch.getSession(username, hostname);
 			session.setConfig("StrictHostKeyChecking", "no");
 			session.setUserInfo(new SSHUserInfo(log, password));
-			session.connect(TIMEOUT);
+			session.connect();
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);
 		}
