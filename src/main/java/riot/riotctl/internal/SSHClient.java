@@ -1,5 +1,6 @@
 package riot.riotctl.internal;
 
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -119,8 +120,12 @@ public class SSHClient implements Closeable {
 		return rc;
 	}
 
-	public void copyDir(File lDir, String rDir) throws IOException {
+	public void mkDir(String rDir) throws IOException {
 		exec("sudo mkdir -p " + rDir, true);
+	}
+
+	public void copyDir(File lDir, String rDir) throws IOException {
+		mkDir(rDir);
 		for (File lFile : lDir.listFiles()) {
 			final String rFile = rDir + '/' + lFile.getName();
 			if (lFile.isDirectory()) {
@@ -150,7 +155,7 @@ public class SSHClient implements Closeable {
 
 		try {
 			channel.connect(3000);
-			if (receiveAck(in) != 0) {
+			if (receiveAck(in, false) != 0) {
 				return;
 			}
 		} catch (JSchException e) {
@@ -158,17 +163,17 @@ public class SSHClient implements Closeable {
 		}
 
 		sendTMessage(out, lFile.lastModified(), System.currentTimeMillis());
-		if (receiveAck(in) != 0) {
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
 		sendCMessage(out, "0644", rFileName, lFile.length());
-		if (receiveAck(in) != 0) {
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
 		sendFileContents(out, lFile);
-		if (receiveAck(in) != 0) {
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
@@ -181,23 +186,22 @@ public class SSHClient implements Closeable {
 	 * 
 	 * @param payload
 	 *            the file's content
-	 * @param rDirName
+	 * @param rFile
 	 *            the directory in which to store the file
 	 * @param rFileName
 	 *            the file name
 	 * @throws IOException
 	 */
-	public void write(String payload, String rDirName, String rFileName) throws IOException {
+	public void write(String payload, String rFile) throws IOException {
 		final ChannelExec channel = openExecChannel();
-		rDirName = rDirName.replace("'", "'\"'\"'");
-		channel.setCommand("sudo scp -p -t '" + rDirName + "'");
-
+		rFile = rFile.replace("'", "'\"'\"'");
+		channel.setCommand("sudo scp -p -t '" + rFile + "'");
 		OutputStream out = channel.getOutputStream();
 		InputStream in = channel.getInputStream();
 
 		try {
 			channel.connect(3000);
-			if (receiveAck(in) != 0) {
+			if (receiveAck(in, false) != 0) {
 				return;
 			}
 		} catch (JSchException e) {
@@ -205,12 +209,12 @@ public class SSHClient implements Closeable {
 		}
 
 		sendTMessage(out, System.currentTimeMillis(), System.currentTimeMillis());
-		if (receiveAck(in) != 0) {
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
-		sendCMessage(out, "0644", rFileName, payload.length());
-		if (receiveAck(in) != 0) {
+		sendCMessage(out, "0644", rFile.substring(rFile.lastIndexOf('/') + 1), payload.length());
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
@@ -220,12 +224,102 @@ public class SSHClient implements Closeable {
 		// send '\0'
 		out.write(0);
 		out.flush();
-		if (receiveAck(in) != 0) {
+		if (receiveAck(in, false) != 0) {
 			return;
 		}
 
 		out.close();
 		channel.disconnect();
+	}
+
+	/**
+	 * Reads a file via SCP, returning the contents in a string
+	 * 
+	 * @param rFile
+	 *            the file name
+	 * @throws IOException
+	 */
+	public String read(String rFile, boolean suppressStdErr) throws IOException {
+		final ChannelExec channel = openExecChannel();
+		rFile = rFile.replace("'", "'\"'\"'");
+		rFile = "'" + rFile + "'";
+		channel.setCommand("scp -f " + rFile);
+		OutputStream out = channel.getOutputStream();
+		InputStream in = channel.getInputStream();
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+		try {
+			channel.connect(3000);
+		} catch (JSchException e) {
+			throw new IOException(e.getMessage(), e);
+		}
+
+		byte[] buf = new byte[1024];
+
+		out.write(0);
+		out.flush();
+
+		while (true) {
+			int c = receiveAck(in, suppressStdErr);
+			if (c != 'C') {
+				break;
+			}
+
+			// read file mask, e.g. '0644 '
+			in.read(buf, 0, 5);
+
+			long filesize = 0L; // unused
+			while (true) {
+				if (in.read(buf, 0, 1) < 0) {
+					// error
+					break;
+				}
+				if (buf[0] == ' ')
+					break;
+				filesize = filesize * 10L + (long) (buf[0] - '0');
+			}
+
+			String filename = null; // unused
+			for (int i = 0;; i++) {
+				in.read(buf, i, 1);
+				if (buf[i] == (byte) 0x0a) {
+					filename = new String(buf, 0, i);
+					break;
+				}
+			}
+
+			out.write(0);
+			out.flush();
+
+			int foo;
+			while (true) {
+				if (buf.length < filesize)
+					foo = buf.length;
+				else
+					foo = (int) filesize;
+				foo = in.read(buf, 0, foo);
+				if (foo < 0) {
+					// error
+					break;
+				}
+				baos.write(buf, 0, foo);
+				filesize -= foo;
+				if (filesize == 0L)
+					break;
+			}
+			baos.close();
+
+			if (receiveAck(in, false) != 0) {
+				return "";
+			}
+
+			out.write(0);
+			out.flush();
+		}
+
+		channel.disconnect();
+
+		return new String(baos.toByteArray(), "UTF-8");
 	}
 
 	/**
@@ -298,7 +392,7 @@ public class SSHClient implements Closeable {
 	 * Check for SCP Acknowledge return code; 0 for success, 1 for error, 2 for
 	 * fatal error.
 	 */
-	private int receiveAck(InputStream in) throws IOException {
+	private int receiveAck(InputStream in, boolean suppressErrors) throws IOException {
 		int b = in.read();
 		if (b == 0)
 			return b;
@@ -312,10 +406,11 @@ public class SSHClient implements Closeable {
 				c = in.read();
 				sb.append((char) c);
 			} while (c != '\n');
-			if (b == 1) { // error
+			if (suppressErrors) {
+				log.debug(sb.toString());
+			} else if (b == 1) { // error
 				log.error(sb.toString());
-			}
-			if (b == 2) { // fatal error
+			} else if (b == 2) { // fatal error
 				log.error(sb.toString());
 			}
 		}
