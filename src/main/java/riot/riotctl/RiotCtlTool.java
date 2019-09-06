@@ -44,6 +44,7 @@ public class RiotCtlTool {
 				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
 				client.exec("sudo systemctl restart " + packageName, true);
 				client.exec("sudo journalctl -f -u " + packageName, true);
+				//TODO: Terminate with Ctrl-D?
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -67,7 +68,7 @@ public class RiotCtlTool {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl enable " + packageName, true);
-				client.exec("sudo systemctl start " + packageName, true);
+				client.exec("sudo systemctl restart " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
