@@ -55,7 +55,7 @@ public class RiotCtlTool {
 
 				log.info("Checking dependencies " + dependencies + " on " + client.getHost());
 				client.setProxy(SocksProxy.ensureProxy(8080, log));
-				
+
 				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
@@ -85,7 +85,7 @@ public class RiotCtlTool {
 	}
 
 	public RiotCtlTool deployDbg(int debugPort) {
-		return deploy("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort, "-Ddebug");
+		return deploy("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
 	}
 
 	public RiotCtlTool deploy(String... vmparams) {
@@ -93,10 +93,8 @@ public class RiotCtlTool {
 			SSHClient client = iterator.next();
 			try {
 				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername(), vmparams);
-				log.info("Copying " + pkgConf.packageName + " to " + client.getHost());
+				log.info("Deploying " + pkgConf.packageName + " to " + client.getHost());
 				client.copyDir(stageDir, pkgConf.binDir);
-
-				log.info("Setting up service " + pkgConf.packageName);
 				client.write(pkgConf.toSystemdFile(), "/etc/systemd/system/" + pkgConf.packageName + ".service");
 				client.exec("sudo systemctl daemon-reload", true);
 			} catch (IOException e) {
@@ -119,7 +117,7 @@ public class RiotCtlTool {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl restart " + packageName, true);
-				client.exec("sudo journalctl -f -u " + packageName, true);
+				client.run("sudo journalctl -f -u " + packageName, System.in);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -127,12 +125,11 @@ public class RiotCtlTool {
 		}
 		return this;
 	}
-
-	public RiotCtlTool debug() {
+	
+	public RiotCtlTool start() {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl restart " + packageName, true);
-				client.exec("sudo journalctl -f -u " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -158,6 +155,7 @@ public class RiotCtlTool {
 			try {
 				client.exec("sudo systemctl enable " + packageName, true);
 				client.exec("sudo systemctl restart " + packageName, true);
+				log.info("Enabled service " + packageName + ", service will now start automatically.");
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -169,10 +167,10 @@ public class RiotCtlTool {
 	public RiotCtlTool uninstall() {
 		for (SSHClient client : clients) {
 			try {
-				log.info("Removing service " + packageName);
 				client.exec("sudo systemctl disable " + packageName, true);
 				client.exec("sudo systemctl stop " + packageName, true);
-				// TODO: Delete everything
+				log.info("Disablied service " + packageName);
+				// TODO: Delete everything?
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());

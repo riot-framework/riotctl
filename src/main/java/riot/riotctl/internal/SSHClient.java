@@ -8,6 +8,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Scanner;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
@@ -121,6 +122,67 @@ public class SSHClient implements Closeable {
 
 		if (checkRc && rc != 0) {
 			throw new IOException("Operation returned exit status " + rc);
+		}
+
+		channel.disconnect();
+		return rc;
+	}
+
+	public int run(String command, InputStream stdIn) throws IOException {
+		final ChannelExec channel = openExecChannel();
+		channel.setCommand(command);
+
+		InputStream in = channel.getInputStream();
+		InputStream err = channel.getExtInputStream();
+		OutputStream out = channel.getOutputStream();
+		int rc = Integer.MIN_VALUE;
+		int enterCount = 0;
+
+		try {
+			channel.connect(3000);
+		} catch (JSchException e) {
+			throw new IOException(e.getMessage(), e);
+		}
+
+		log.info("To stop, press <Enter> twice.");
+
+		byte[] tmp = new byte[1024];
+		while (true) {
+			while (in.available() > 0) {
+				int i = in.read(tmp, 0, 1024);
+				if (i < 0)
+					break;
+				log.info(new String(tmp, 0, i).trim());
+			}
+			while (err.available() > 0) {
+				int i = err.read(tmp, 0, 1024);
+				if (i < 0)
+					break;
+				log.error(new String(tmp, 0, i));
+			}
+			if (stdIn.available() > 0) {
+				int i = stdIn.read(tmp, 0, 1024);
+				if (i < 0)
+					break;
+				if (tmp[0] == '\n') {
+					if (++enterCount > 1) {
+						break;
+					}
+				} else {
+					enterCount = 0;
+				}
+				out.write(tmp, 0, i);
+			}
+			if (channel.isClosed()) {
+				if ((in.available() > 0) || (err.available() > 0))
+					continue;
+				rc = channel.getExitStatus();
+				break;
+			}
+			try {
+				Thread.sleep(1000);
+			} catch (Exception ee) {
+			}
 		}
 
 		channel.disconnect();
