@@ -43,7 +43,14 @@ public class SSHClient implements Closeable {
 			session = jsch.getSession(username, hostname);
 			session.setConfig("StrictHostKeyChecking", "no");
 			session.setUserInfo(new SSHUserInfo(log, password));
-			session.connect();
+			try {
+				session.connect(2000);
+			} catch (JSchException e) {
+				// Workaround: After a long downtime, some PIs don't reply to the first SSH
+				// client. This seems to fix it reliable. Ping me if you have an idea why the
+				// first connection attempt sometimes fails...
+				session.connect();
+			}
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);
 		}
