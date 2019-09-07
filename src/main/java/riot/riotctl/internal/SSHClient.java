@@ -8,7 +8,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Scanner;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
@@ -213,6 +212,7 @@ public class SSHClient implements Closeable {
 	 * @param rFileName
 	 *            the file name and directory to which to copy the file
 	 * @throws IOException
+	 *             if copying fails
 	 */
 	public void copy(File lFile, String rFileName) throws IOException {
 		final ChannelExec channel = openExecChannel();
@@ -256,9 +256,7 @@ public class SSHClient implements Closeable {
 	 * @param payload
 	 *            the file's content
 	 * @param rFile
-	 *            the directory in which to store the file
-	 * @param rFileName
-	 *            the file name
+	 *            the remote file as which to store the contents
 	 * @throws IOException
 	 */
 	public void write(String payload, String rFile) throws IOException {
@@ -306,7 +304,15 @@ public class SSHClient implements Closeable {
 	 * 
 	 * @param rFile
 	 *            the file name
+	 * @param suppressStdErr
+	 *            whether errors should be redirected to the debug log instead of
+	 *            the error log
 	 * @throws IOException
+	 *             if connection failed or reading the file aborted. This will NOT
+	 *             be thrown if the file is not found, instead an empty String will
+	 *             be returned.
+	 * @return a String with the contents of the file, or an empty String if no such
+	 *         file exists
 	 */
 	public String read(String rFile, boolean suppressStdErr) throws IOException {
 		final ChannelExec channel = openExecChannel();
@@ -395,6 +401,7 @@ public class SSHClient implements Closeable {
 	 * Open and configures an ExecChannel (PTY type, Locale...)
 	 * 
 	 * @throws IOException
+	 *             if the Channel couldn't be opened
 	 */
 	private ChannelExec openExecChannel() throws IOException {
 		try {

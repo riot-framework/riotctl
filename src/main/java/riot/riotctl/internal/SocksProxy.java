@@ -30,6 +30,7 @@ public class SocksProxy implements Runnable {
 	 *            the logger class
 	 * @return a port number on which a Socks5 server is listening
 	 * @throws IOException
+	 *             if the proxy couldn't be started
 	 */
 	public static synchronized SocksProxy ensureProxy(int port, Logger log) throws IOException {
 		if (instance != null) {
