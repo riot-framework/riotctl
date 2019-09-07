@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>org.riot-framework</groupId>
@@ -21,6 +22,16 @@
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
+
+	<developers>
+		<developer>
+			<id>fauberso</id>
+			<name>Frederic Auberson</name>
+			<email>frederic@auberson.net</email>
+			<organization>RIoT</organization>
+			<organizationUrl>http://riot.community</organizationUrl>
+		</developer>
+	</developers>
 
 	<scm>
 		<connection>scm:git:git@github.com:riot-framework/riotctl.git</connection>
