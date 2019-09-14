@@ -45,7 +45,7 @@ public class PackageConfig {
 		sb.append("ExecReload=/bin/kill -HUP $MAINPID").append(LF);
 		sb.append("Restart=always").append(LF);
 		sb.append("RestartSec=60").append(LF);
-		sb.append("SuccessExitStatus=").append(LF);
+		sb.append("SuccessExitStatus=143").append(LF); // VM responds to SIGTERM with RC 143
 		sb.append("TimeoutStopSec=5").append(LF);
 		sb.append("User=" + user).append(LF);
 		// sb.append("ExecStartPre=/bin/mkdir -p " + runDir).append(LF);
