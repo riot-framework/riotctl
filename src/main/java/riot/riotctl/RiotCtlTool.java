@@ -142,6 +142,7 @@ public class RiotCtlTool {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl stop " + packageName, true);
+				log.info("Stopping service " + packageName + ".");
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
