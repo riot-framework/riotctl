@@ -20,15 +20,12 @@ import riot.riotctl.logger.StdOutLogger;
 public class RiotCtlTool {
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
 	private final String packageName;
-	private final String dependencies;
 	private final File stageDir;
 	private final Logger log;
 
-	public RiotCtlTool(String packageName, String packageDependencies, File stageDir, List<Target> targets,
-			Logger log) {
+	public RiotCtlTool(String packageName, File stageDir, List<Target> targets, Logger log) {
 		super();
 		this.packageName = packageName;
-		this.dependencies = packageDependencies;
 		this.stageDir = stageDir;
 		this.log = log;
 
@@ -42,10 +39,9 @@ public class RiotCtlTool {
 		}
 	}
 
-	public RiotCtlTool ensurePackages() {
+	public RiotCtlTool ensurePackages(String dependencies) {
 		for (SSHClient client : clients) {
 			try {
-
 				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
 				String[] lastCheckedPkg = client.read(pkgConf.runDir + "/dependencies.lst", true).split("\\s+");
 				if (hasSamePackages(lastCheckedPkg, dependencies.split("\\s+"))) {
@@ -54,9 +50,10 @@ public class RiotCtlTool {
 				}
 
 				log.info("Checking dependencies " + dependencies + " on " + client.getHost());
-				client.setProxy(SocksProxy.ensureProxy(8080, log));
+				final SocksProxy proxy = SocksProxy.ensureProxy(8080, log);
+				client.setProxy(proxy);
 
-				final String aptOptions = "-o Acquire::http::proxy=\"http://localhost:8080\"";
+				final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:"+proxy+"\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
@@ -75,6 +72,14 @@ public class RiotCtlTool {
 				log.error(e.getMessage());
 			}
 		}
+		return this;
+	}
+
+	public RiotCtlTool ensureEnabled(boolean i2c, boolean spi, boolean serial, boolean onewire) {
+		// Example I2C/SPI:
+		// sudo raspi-config nonint get_i2c (0 if enabled)
+		// sudo raspi-config nonint do_i2c 0
+
 		return this;
 	}
 
@@ -125,7 +130,7 @@ public class RiotCtlTool {
 		}
 		return this;
 	}
-	
+
 	public RiotCtlTool start() {
 		for (SSHClient client : clients) {
 			try {
@@ -170,7 +175,7 @@ public class RiotCtlTool {
 			try {
 				client.exec("sudo systemctl disable " + packageName, true);
 				client.exec("sudo systemctl stop " + packageName, true);
-				log.info("Disablied service " + packageName);
+				log.info("Disabled service " + packageName);
 				// TODO: Delete everything?
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -196,8 +201,8 @@ public class RiotCtlTool {
 
 		File stageDir = new File(args[0]);
 
-		RiotCtlTool tool = new RiotCtlTool(args[1], "oracle-java8-jdk wiringpi", stageDir, targets, log);
-		tool.ensurePackages().deployDbg(7896).run().close();
+		RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
+		tool.ensurePackages("oracle-java8-jdk wiringpi").deployDbg(7896).run().close();
 		log.info("done");
 	}
 }
