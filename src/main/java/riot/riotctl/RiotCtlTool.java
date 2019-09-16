@@ -53,7 +53,7 @@ public class RiotCtlTool {
 				final SocksProxy proxy = SocksProxy.ensureProxy(8080, log);
 				client.setProxy(proxy);
 
-				final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:"+proxy+"\"";
+				final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:"+proxy.getPort()+"\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
@@ -202,7 +202,7 @@ public class RiotCtlTool {
 		File stageDir = new File(args[0]);
 
 		RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-		tool.ensurePackages("oracle-java8-jdk wiringpi").deployDbg(7896).run().close();
+		tool.ensurePackages("oracle-java8-jdk wiringpi i2c-tools").deployDbg(7896).run().close();
 		log.info("done");
 	}
 }
