@@ -63,7 +63,7 @@ public class SSHClient implements Closeable {
 			}
 			this.proxy = proxy;
 			proxy.registerClient(this);
-			session.setPortForwardingR(8080, "localhost", proxy.getPort());
+			session.setPortForwardingR(proxy.getPort(), "localhost", proxy.getPort());
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);
 		}
