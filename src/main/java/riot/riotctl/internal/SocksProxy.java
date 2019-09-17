@@ -1,24 +1,21 @@
 package riot.riotctl.internal;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.connectbot.simplesocks.Socks5Server;
-import org.connectbot.simplesocks.Socks5Server.ResponseCode;
-
 import riot.riotctl.Logger;
+import sockslib.common.methods.NoAuthenticationRequiredMethod;
+import sockslib.server.SocksProxyServer;
+import sockslib.server.SocksServerBuilder;
 
-public class SocksProxy implements Runnable {
+public class SocksProxy {
 	private static SocksProxy instance;
-	private final ServerSocket serverSocket;
+	private SocksProxyServer server = null;
 	private final Set<SSHClient> clients = new HashSet<SSHClient>();
 	private final Logger log;
-	private int port;
-	private boolean running;
+	private int minPort, maxPort;
 
 	/**
 	 * Ensure that at least one instance of the Socks proxy exists, returns its
@@ -41,14 +38,18 @@ public class SocksProxy implements Runnable {
 	}
 
 	public SocksProxy(int minPort, int maxPort, Logger log) throws IOException {
-		this.serverSocket = getSocket(minPort, maxPort);
+		this.minPort = minPort;
+		this.maxPort = maxPort;
+		this.server = getSocket(minPort, maxPort);
 		this.log = log;
 	}
 
-	private ServerSocket getSocket(int minPort, int maxPort) throws IOException {
+	private SocksProxyServer getSocket(int minPort, int maxPort) throws IOException {
 		try {
-			port = minPort;
-			return new ServerSocket(port);
+			SocksProxyServer server = SocksServerBuilder.newSocks5ServerBuilder()
+					.setSocksMethods(new NoAuthenticationRequiredMethod()).setBindAddr(InetAddress.getLocalHost()).setBindPort(minPort).build();
+			server.start(); // Will throw exception if port is in use
+			return server;
 		} catch (IOException e) {
 			if (minPort == maxPort) {
 				throw e;
@@ -58,67 +59,21 @@ public class SocksProxy implements Runnable {
 	}
 
 	public int getPort() {
-		return port;
+		return server.getBindPort();
 	}
 
-	@Override
-	public void run() {
-		try {
-			while (running) {
-				log.debug("Socks5 proxy running on port " + port);
-				respondAsync(serverSocket.accept().getInputStream());
-			}
-		} catch (IOException e) {
-			if (running == true) {
-				e.printStackTrace();
-				log.error(e.getMessage());
-			}
-		}
-	}
-
-	private void respondAsync(InputStream socket) {
-		new Thread(new Runnable() {
-
-			@Override
-			public void run() {
-				try {
-					Socket outboundSocket = new Socket();
-					Socks5Server proxy = new Socks5Server(socket, outboundSocket.getOutputStream());
-
-					if (proxy.acceptAuthentication() && proxy.readRequest()) {
-						proxy.sendReply(ResponseCode.SUCCESS);
-						outboundSocket.close();
-						socket.close();
-					} else {
-						log.error("SOCKS5 authentication failed");
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-					log.error("SOCKS5: " + e.getMessage());
-				}
-			}
-
-		}).start();
-	}
-
-	public synchronized void registerClient(SSHClient sshClient) {
+	public synchronized void registerClient(SSHClient sshClient) throws IOException {
 		clients.add(sshClient);
-		if (running = false) {
-			running = true;
-			new Thread(instance, "Socks5 Proxy").start();
+		if (server == null) {
+			this.server = getSocket(minPort, maxPort);
 		}
 	}
 
-	public synchronized void unregisterClient(SSHClient sshClient) {
+	public synchronized void unregisterClient(SSHClient sshClient) throws IOException {
 		clients.remove(sshClient);
 		if (clients.isEmpty()) {
-			running = false;
-			try {
-				serverSocket.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-				log.warn("Unable to close proxy port: " + e.getMessage());
-			}
+			server.shutdown();
+			server = null;
 		}
 	}
 }

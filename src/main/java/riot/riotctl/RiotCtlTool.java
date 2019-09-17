@@ -53,7 +53,7 @@ public class RiotCtlTool {
 				final SocksProxy proxy = SocksProxy.ensureProxy(8080, log);
 				client.setProxy(proxy);
 
-				final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:"+proxy.getPort()+"\"";
+				final String aptOptions = "-y -o Acquire::http::proxy=\"socks5h://localhost:"+proxy.getPort()+"\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
