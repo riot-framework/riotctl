@@ -8,7 +8,7 @@
 
 	<name>RIoT Control base library</name>
 	<description>RIoT Control is a library used by various build plugins to deploy Java applications to small form factor computers</description>
-	<url>https://github.com/riot-framework/riotctl</url>
+	<url>https://riot.community</url>
 
 	<issueManagement>
 		<url>https://github.com/riot-framework/riotctl/issues</url>
