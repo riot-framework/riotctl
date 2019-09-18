@@ -185,7 +185,7 @@ public class RiotCtlTool {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl restart " + packageName, true);
-				client.run("sudo journalctl -f -u " + packageName, System.in);
+				client.run("sudo journalctl -n 1 -f -u " + packageName, System.in);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
