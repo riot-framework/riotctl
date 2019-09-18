@@ -164,7 +164,7 @@ public class SSHClient implements Closeable {
 		log.info("To stop, press <Enter> twice.");
 
 		byte[] tmp = new byte[1024];
-		while (true) {
+		run: while (true) {
 			while (in.available() > 0) {
 				int i = in.read(tmp, 0, 1024);
 				if (i < 0)
@@ -179,14 +179,16 @@ public class SSHClient implements Closeable {
 			}
 			if (stdIn.available() > 0) {
 				int i = stdIn.read(tmp, 0, 1024);
-				if (i < 1)
+				if (i < 0)
 					break;
-				if (tmp[0] == '\n') {
-					if (++enterCount > 1) {
-						break;
-					}
-				} else {
-					enterCount = 0;
+				for (int j = 0; j < i; j++) {
+					if (tmp[j] == '\n') {
+						if (++enterCount > 1) {
+							break run;
+						}
+					} else {
+						enterCount = 0;
+					}	
 				}
 				out.write(tmp, 0, i);
 			}
