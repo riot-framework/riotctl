@@ -44,10 +44,14 @@ public class RiotCtlTool {
 	}
 
 	public RiotCtlTool ensurePackages(String dependencies) {
+		if (dependencies == null || dependencies.trim().length() < 1)
+			return this;
+
 		for (SSHClient client : clients) {
 			try {
 				PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
 				String[] lastCheckedPkg = client.read(pkgConf.runDir + "/dependencies.lst", true).split("\\s+");
+
 				if (hasSamePackages(lastCheckedPkg, dependencies.split("\\s+"))) {
 					log.info("Dependencies unchanged since last install, skipping check on " + client.getHost());
 					continue;
