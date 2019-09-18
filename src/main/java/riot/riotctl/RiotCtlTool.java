@@ -2,7 +2,6 @@ package riot.riotctl;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -112,9 +111,10 @@ public class RiotCtlTool {
 			// Set internal clock
 			if (time) {
 				try {
-					client.exec("timedatectl | grep -q 'NTP synchronized: no' "
-							+"&& sudo timedatectl set-ntp 0 "
-							+"&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date())+"'", true);
+					client.exec(
+							"timedatectl | grep -q 'NTP synchronized: no' " + "&& sudo timedatectl set-ntp 0 "
+									+ "&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
+							true);
 				} catch (IOException e) {
 					e.printStackTrace();
 					log.error(e.getMessage());
@@ -186,9 +186,15 @@ public class RiotCtlTool {
 			try {
 				client.exec("sudo systemctl restart " + packageName, true);
 				client.run("sudo journalctl -f -u " + packageName, System.in);
-				client.exec("sudo systemctl stop " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
+				log.error(e.getMessage());
+			}
+
+			try {
+				// May fail if the session times out.
+				client.exec("sudo systemctl stop " + packageName, true);
+			} catch (IOException e) {
 				log.error(e.getMessage());
 			}
 		}
