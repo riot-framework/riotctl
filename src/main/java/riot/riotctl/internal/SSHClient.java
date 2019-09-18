@@ -179,7 +179,7 @@ public class SSHClient implements Closeable {
 			}
 			if (stdIn.available() > 0) {
 				int i = stdIn.read(tmp, 0, 1024);
-				if (i < 0)
+				if (i < 1)
 					break;
 				if (tmp[0] == '\n') {
 					if (++enterCount > 1) {
