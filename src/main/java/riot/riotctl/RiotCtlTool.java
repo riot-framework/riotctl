@@ -93,7 +93,9 @@ public class RiotCtlTool {
 		if (serial) {
 			features.add("Serial");
 			getCmds.add("sudo raspi-config nonint get_serial_hw | grep -q 0");
-			setCmds.add("sudo raspi-config nonint do_serial 0");
+			setCmds.add("sudo raspi-config nonint do_serial 0"
+					+ "&& sudo sed -i /boot/cmdline.txt -e \"s/console=ttyAMA0,[0-9]\\+ //\""
+					+ "&& sudo sed -i /boot/cmdline.txt -e \"s/console=serial0,[0-9]\\+ //\"");
 		}
 		if (onewire) {
 			features.add("1Wire");
