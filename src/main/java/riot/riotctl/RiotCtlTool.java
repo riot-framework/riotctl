@@ -53,7 +53,7 @@ public class RiotCtlTool {
 				final SocksProxy proxy = SocksProxy.ensureProxy(8080, log);
 				client.setProxy(proxy);
 
-				final String aptOptions = "-y -o Acquire::http::proxy=\"socks5h://localhost:"+proxy.getPort()+"\"";
+				final String aptOptions = "-y -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\"";
 				final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
@@ -76,10 +76,55 @@ public class RiotCtlTool {
 	}
 
 	public RiotCtlTool ensureEnabled(boolean i2c, boolean spi, boolean serial, boolean onewire) {
-		// Example I2C/SPI:
-		// sudo raspi-config nonint get_i2c (0 if enabled)
-		// sudo raspi-config nonint do_i2c 0
+		List<String> features = new ArrayList<String>(8);
+		List<String> getCmds = new ArrayList<String>(8);
+		List<String> setCmds = new ArrayList<String>(8);
 
+		if (i2c) {
+			features.add("I2C");
+			getCmds.add("sudo raspi-config nonint get_i2c | grep -q 0");
+			setCmds.add("sudo raspi-config nonint do_i2c 0");
+		}
+		if (spi) {
+			features.add("SPI");
+			getCmds.add("sudo raspi-config nonint get_spi | grep -q 0");
+			setCmds.add("sudo raspi-config nonint do_spi 0");
+		}
+		if (serial) {
+			features.add("Serial");
+			getCmds.add("sudo raspi-config nonint get_serial_hw | grep -q 0");
+			setCmds.add("sudo raspi-config nonint do_serial 0");
+		}
+		if (onewire) {
+			features.add("1Wire");
+			getCmds.add("sudo raspi-config nonint get_onewire | grep -q 0");
+			setCmds.add("sudo raspi-config nonint do_onewire 0");
+		}
+
+		for (SSHClient client : clients) {
+			if (features.size() > 0) {
+				log.info("Ensuring features are enabled on " + client.getHost() + ": " + String.join(", ", features));
+				for (int i = 0; i < features.size(); i++) {
+					try {
+						int rc = client.exec(getCmds.get(i), false);
+						if (rc != 0) {
+							rc = client.exec(setCmds.get(i), false);
+							if (rc != 0) {
+								log.error("Unable to enable " + features.get(i) + " on " + client.getHost());
+							} else {
+								log.warn("Enabled " + features.get(i) + ", " + client.getHost()
+										+ " may need to be rebooted!");
+							}
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+						log.error(e.getMessage());
+					}
+				}
+
+			}
+
+		}
 		return this;
 	}
 
@@ -202,7 +247,8 @@ public class RiotCtlTool {
 		File stageDir = new File(args[0]);
 
 		RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-		tool.ensurePackages("oracle-java8-jdk wiringpi i2c-tools").deployDbg(7896).run().close();
+		tool.ensurePackages("oracle-java8-jdk wiringpi i2c-tools").ensureEnabled(true, true, false, false)
+				.deployDbg(7896).run().close();
 		log.info("done");
 	}
 }
