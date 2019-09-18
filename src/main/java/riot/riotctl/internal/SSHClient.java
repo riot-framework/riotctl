@@ -71,7 +71,7 @@ public class SSHClient implements Closeable {
 
 	public void resetProxy() throws IOException {
 		try {
-			session.delPortForwardingR(8080);
+			session.delPortForwardingR(proxy.getPort());
 		} catch (JSchException e) {
 			throw new IOException(e.getMessage(), e);
 		}
