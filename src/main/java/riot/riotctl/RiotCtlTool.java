@@ -2,8 +2,11 @@ package riot.riotctl;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -18,6 +21,8 @@ import riot.riotctl.internal.SocksProxy;
 import riot.riotctl.logger.StdOutLogger;
 
 public class RiotCtlTool {
+	private static final SimpleDateFormat TIMEDATECTL_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
 	private final List<SSHClient> clients = new ArrayList<SSHClient>();
 	private final String packageName;
 	private final File stageDir;
@@ -75,7 +80,7 @@ public class RiotCtlTool {
 		return this;
 	}
 
-	public RiotCtlTool ensureEnabled(boolean i2c, boolean spi, boolean serial, boolean onewire) {
+	public RiotCtlTool ensureEnabled(boolean i2c, boolean spi, boolean serial, boolean onewire, boolean time) {
 		List<String> features = new ArrayList<String>(8);
 		List<String> getCmds = new ArrayList<String>(8);
 		List<String> setCmds = new ArrayList<String>(8);
@@ -104,6 +109,18 @@ public class RiotCtlTool {
 		}
 
 		for (SSHClient client : clients) {
+			// Set internal clock
+			if (time) {
+				try {
+					client.exec("timedatectl | grep -q 'NTP synchronized: no' "
+							+"&& sudo timedatectl set-ntp 0 "
+							+"&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date())+"'", true);
+				} catch (IOException e) {
+					e.printStackTrace();
+					log.error(e.getMessage());
+				}
+			}
+			// Enable features
 			if (features.size() > 0) {
 				log.info("Ensuring features are enabled on " + client.getHost() + ": " + String.join(", ", features));
 				for (int i = 0; i < features.size(); i++) {
@@ -123,7 +140,6 @@ public class RiotCtlTool {
 						log.error(e.getMessage());
 					}
 				}
-
 			}
 
 		}
@@ -170,6 +186,7 @@ public class RiotCtlTool {
 			try {
 				client.exec("sudo systemctl restart " + packageName, true);
 				client.run("sudo journalctl -f -u " + packageName, System.in);
+				client.exec("sudo systemctl stop " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -223,7 +240,6 @@ public class RiotCtlTool {
 				client.exec("sudo systemctl disable " + packageName, true);
 				client.exec("sudo systemctl stop " + packageName, true);
 				log.info("Disabled service " + packageName);
-				// TODO: Delete everything?
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
@@ -249,7 +265,7 @@ public class RiotCtlTool {
 		File stageDir = new File(args[0]);
 
 		RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-		tool.ensurePackages("oracle-java8-jdk wiringpi i2c-tools").ensureEnabled(true, true, false, false)
+		tool.ensurePackages("oracle-java8-jdk wiringpi i2c-tools").ensureEnabled(true, true, false, false, true)
 				.deployDbg(7896).run().close();
 		log.info("done");
 	}
