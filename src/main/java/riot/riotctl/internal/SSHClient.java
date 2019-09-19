@@ -93,7 +93,6 @@ public class SSHClient implements Closeable {
 			throw new IOException(e.getMessage(), e);
 		}
 
-
 		StringBuilder debug = new StringBuilder();
 		StringBuilder error = new StringBuilder();
 		byte[] tmp = new byte[1024];
@@ -110,14 +109,15 @@ public class SSHClient implements Closeable {
 					break;
 				error.append(new String(tmp, 0, i));
 			}
-			if (debug.length()>0 && debug.charAt(debug.length()-1) == '\n') {
+			if (debug.length() > 0 && debug.charAt(debug.length() - 1) == '\n') {
 				log.debug(debug.toString().trim());
 				debug = new StringBuilder();
 			}
-			if (error.length()>0 && error.charAt(debug.length()-1) == '\n') {
-				log.error(error.toString().trim()); 
+			if (error.length() > 0 && error.charAt(error.length() - 1) == '\n') {
+				// StdErr is often used for status messages, e.g. by systemctl
+				log.info(error.toString().trim());
 			}
-			
+
 			if (channel.isClosed()) {
 				if ((in.available() > 0) || (err.available() > 0))
 					continue;
@@ -130,13 +130,13 @@ public class SSHClient implements Closeable {
 			}
 		}
 
-		if (debug.length()>0) {
-			log.debug(debug.toString().trim()); 
+		if (debug.length() > 0) {
+			log.debug(debug.toString().trim());
 		}
-		if (debug.length()>0) {
+		if (debug.length() > 0) {
 			log.error(error.toString().trim());
 		}
-		
+
 		if (checkRc && rc != 0) {
 			throw new IOException("Operation returned exit status " + rc);
 		}
@@ -188,7 +188,7 @@ public class SSHClient implements Closeable {
 						}
 					} else {
 						enterCount = 0;
-					}	
+					}
 				}
 				out.write(tmp, 0, i);
 			}
