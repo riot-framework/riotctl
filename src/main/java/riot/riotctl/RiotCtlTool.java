@@ -208,6 +208,7 @@ public class RiotCtlTool {
 	public RiotCtlTool start() {
 		for (SSHClient client : clients) {
 			try {
+				log.info("Starting " + packageName + " on " + client.getHost());
 				client.exec("sudo systemctl restart " + packageName, true);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -221,7 +222,7 @@ public class RiotCtlTool {
 		for (SSHClient client : clients) {
 			try {
 				client.exec("sudo systemctl stop " + packageName, true);
-				log.info("Stopping service " + packageName + ".");
+				log.info("Stopped " + packageName + " on " + client.getHost());
 			} catch (IOException e) {
 				e.printStackTrace();
 				log.error(e.getMessage());
