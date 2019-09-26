@@ -66,8 +66,12 @@ public class RiotCtlTool {
 				final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
 				// Update package list if it's over a month old:
-				client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;", false);
-
+				int updRc = client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;", false);
+				if (updRc != 1) {
+					// File doesn't even exist yet, or couldn't be checked.
+					client.exec(aptUpdateCmd, true);
+				}
+				
 				// Update the packages:
 				client.exec(aptInstallCmd, true);
 
