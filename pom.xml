@@ -51,11 +51,11 @@
 			<artifactId>jmdns</artifactId>
 			<version>3.5.5</version>
 		</dependency>
-		<!-- SOCKS5 Proxy -->
+		<!-- HTTP Proxy -->
 		<dependency>
-			<groupId>com.github.mike10004</groupId>
-			<artifactId>fengyouchao-sockslib</artifactId>
-			<version>1.0.5</version>
+		    <groupId>org.littleshoot</groupId>
+		    <artifactId>littleproxy</artifactId>
+		    <version>1.1.2</version>
 		</dependency>
 		<!-- Misc -->
 		<dependency>
