@@ -61,7 +61,7 @@ public class RiotCtlTool {
                 final HttpProxy proxy = HttpProxy.ensureProxy(8080, log);
                 client.setProxy(proxy);
 
-                final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:" + proxy.getPort() + "/\"";
+                final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:" + proxy.getPort() + "\"";
                 final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
                 final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 
@@ -75,7 +75,6 @@ public class RiotCtlTool {
 
                 // Update the packages:
                 client.exec(aptInstallCmd, true);
-
                 client.mkDir(pkgConf.runDir);
                 client.write(dependencies, pkgConf.runDir + "/dependencies.lst");
 
