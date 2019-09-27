@@ -14,7 +14,7 @@ import java.util.Set;
 import riot.riotctl.Target.DiscoveryMethod;
 import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
-import riot.riotctl.internal.HttpProxy;
+import riot.riotctl.internal.ProxyServer;
 import riot.riotctl.internal.PackageConfig;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.logger.StdOutLogger;
@@ -58,10 +58,10 @@ public class RiotCtlTool {
                 }
 
                 log.info("Checking dependencies " + dependencies + " on " + client.getHost());
-                final HttpProxy proxy = HttpProxy.ensureProxy(8080, log);
+                final ProxyServer proxy = ProxyServer.ensureProxy(8080, log);
                 client.setProxy(proxy);
 
-                final String aptOptions = "-y -o Acquire::http::proxy=\"http://localhost:" + proxy.getPort() + "\"";
+                final String aptOptions = "-y -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\"";
                 final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
                 final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
 

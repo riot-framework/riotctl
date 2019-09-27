@@ -29,7 +29,7 @@ public class SSHClient implements Closeable {
 
 	private final Session session;
 	private final Logger log;
-	private HttpProxy proxy;
+	private ProxyServer proxy;
 
 	public SSHClient(HostInfo target, Logger log) throws IOException {
 		this(target.getHost().getHostName(), target.getUsername(), target.getPassword(), log);
@@ -56,7 +56,7 @@ public class SSHClient implements Closeable {
 		}
 	}
 
-	public void setProxy(HttpProxy proxy) throws IOException {
+	public void setProxy(ProxyServer proxy) throws IOException {
 		try {
 			if (this.proxy != null) {
 				resetProxy();

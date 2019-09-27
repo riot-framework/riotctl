@@ -5,14 +5,13 @@ import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.littleshoot.proxy.HttpProxyServer;
-import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.mockserver.integration.ClientAndServer;
 
 import riot.riotctl.Logger;
 
-public class HttpProxy {
-    private static HttpProxy instance;
-    private HttpProxyServer server = null;
+public class ProxyServer {
+    private static ProxyServer instance;
+    private ClientAndServer server;
     private final Set<SSHClient> clients = new HashSet<SSHClient>();
     private final Logger log;
     private int minPort, maxPort, port;
@@ -29,25 +28,25 @@ public class HttpProxy {
      * @throws IOException
      *             if the proxy couldn't be started
      */
-    public static synchronized HttpProxy ensureProxy(int port, Logger log) throws IOException {
+    public static synchronized ProxyServer ensureProxy(int port, Logger log) throws IOException {
         if (instance != null) {
             return instance;
         }
-        instance = new HttpProxy(port, port + 128, log);
+        instance = new ProxyServer(port, port + 128, log);
         return instance;
     }
 
-    public HttpProxy(int minPort, int maxPort, Logger log) throws IOException {
+    public ProxyServer(int minPort, int maxPort, Logger log) throws IOException {
         this.minPort = minPort;
         this.maxPort = maxPort;
         this.server = getSocket(minPort, maxPort);
         this.log = log;
     }
 
-    private HttpProxyServer getSocket(int minPort, int maxPort) throws IOException {
+    private ClientAndServer getSocket(int minPort, int maxPort) throws IOException {
         try {
             // Will throw exception if port is in use
-            HttpProxyServer server = DefaultHttpProxyServer.bootstrap().withPort(minPort).start();
+            ClientAndServer server = ClientAndServer.startClientAndServer(minPort);
             port = minPort;
             return server;
         } catch (Exception e) {

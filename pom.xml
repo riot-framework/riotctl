@@ -53,9 +53,9 @@
 		</dependency>
 		<!-- HTTP Proxy -->
 		<dependency>
-		    <groupId>org.littleshoot</groupId>
-		    <artifactId>littleproxy</artifactId>
-		    <version>1.1.2</version>
+		     <groupId>org.mock-server</groupId>
+		     <artifactId>mockserver-netty</artifactId>
+		     <version>5.6.1</version>
 		</dependency>
 		<!-- Misc -->
 		<dependency>
