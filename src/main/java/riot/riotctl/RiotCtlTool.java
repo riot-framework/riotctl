@@ -11,11 +11,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import riot.riotctl.Target.DiscoveryMethod;
+import riot.riotctl.discovery.BonjourProbe;
 import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
-import riot.riotctl.internal.ProxyServer;
 import riot.riotctl.internal.PackageConfig;
+import riot.riotctl.internal.ProxyServer;
 import riot.riotctl.internal.SSHClient;
 import riot.riotctl.logger.StdOutLogger;
 
@@ -191,6 +191,18 @@ public class RiotCtlTool {
         return this;
     }
 
+    public static void discover(Logger log) {
+        try {
+            final BonjourProbe probe = new BonjourProbe(log, true);
+            Thread.sleep(3000);
+            probe.close();
+        } catch (InterruptedException e) {
+            log.error(e.getMessage());
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
     public RiotCtlTool run() {
         for (SSHClient client : clients) {
             try {
@@ -274,16 +286,21 @@ public class RiotCtlTool {
     }
 
     public static void main(String[] args) throws IOException {
-        StdOutLogger log = new StdOutLogger();
-        List<Target> targets = new ArrayList<>();
-        Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi", "pi", "raspberry");
-        targets.add(target);
 
-        File stageDir = new File(args[0]);
+        RiotCtlTool.discover(new StdOutLogger(false));
 
-        RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-        tool.ensureEnabled(true, true, false, false, true).ensurePackages("openjdk-8-jdk wiringpi i2c-tools")
-                .deployDbg(7896).run().close();
-        log.info("done");
+        // StdOutLogger log = new StdOutLogger();
+        // List<Target> targets = new ArrayList<>();
+        // Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi",
+        // "pi", "raspberry");
+        // targets.add(target);
+        //
+        // File stageDir = new File(args[0]);
+        //
+        // RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
+        // tool.ensureEnabled(true, true, false, false,
+        // true).ensurePackages("openjdk-8-jdk wiringpi i2c-tools")
+        // .deployDbg(7896).run().close();
+        // log.info("done");
     }
 }
