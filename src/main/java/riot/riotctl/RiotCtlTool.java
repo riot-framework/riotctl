@@ -38,8 +38,7 @@ public class RiotCtlTool {
             try {
                 clients.add(new SSHClient(hostinfo, log));
             } catch (IOException e) {
-                e.printStackTrace();
-                log.error(e.getMessage());
+                log.error(hostinfo.getHost().getHostName() + " - " + e.getMessage());
             }
         }
     }
@@ -64,17 +63,17 @@ public class RiotCtlTool {
 
                 String aptOptions = "-y";
                 aptOptions += " -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\"";
-                // aptOptions += " -o Acquire::http::proxy=\"http://localhost:" +
-                // proxy.getPort() + "/\"";
                 aptOptions += " -o Acquire::http::No-Cache=true";
                 aptOptions += " -o Acquire::http::Pipeline-Depth=0";
+                aptOptions += " -o Acquire::Queue-Mode=access";
+                aptOptions += " -o Acquire::Retries=10";
                 // aptOptions += " -o Acquire::BrokenProxy=true";
 
                 log.info(aptOptions);
 
                 final String aptUpdateCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " update";
-                final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " install "
-                        + dependencies;
+                final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions
+                        + " install -m " + dependencies;
 
                 // Update package list if it's over a month old:
                 int updRc = client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 | egrep '.*'", false);
@@ -129,17 +128,7 @@ public class RiotCtlTool {
         for (SSHClient client : clients) {
             // Set internal clock
             if (time) {
-                try {
-                    int rc = client.exec(
-                            "timedatectl | grep -q 'synchronized: no' " + "&& sudo timedatectl set-ntp 0 "
-                                    + "&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
-                            false);
-                    if (rc == 1)
-                        log.debug("System clock is already synchronized");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    log.error(e.getMessage());
-                }
+                ensureCurrentTime(client);
             }
             // Enable features
             if (features.size() > 0) {
@@ -165,6 +154,33 @@ public class RiotCtlTool {
 
         }
         return this;
+    }
+
+    private void ensureCurrentTime(SSHClient client) {
+        try {
+            int timeRc = client.exec("timedatectl | grep -q 'synchronized: no'", false);
+            if (timeRc == 0) {
+                log.info("Updating system clock");
+                int attempts = 5;
+                timeRc = client.exec("sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
+                        false);
+                while (timeRc != 0 && --attempts > 0) {
+                    log.info("Attempting again in 5 seconds...");
+                    Thread.sleep(5000);
+                    timeRc = client.exec(
+                            "sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'", false);
+                }
+            }
+            int rc = client.exec(
+                    "timedatectl | grep -q 'synchronized: no' " + "&& sudo timedatectl set-ntp 0 "
+                            + "&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
+                    false);
+            if (rc == 1)
+                log.debug("System clock is already synchronized");
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+            log.error(e.getMessage());
+        }
     }
 
     private boolean hasSamePackages(String[] pkg1, String[] pkg2) {
