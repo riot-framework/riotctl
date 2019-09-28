@@ -69,8 +69,6 @@ public class RiotCtlTool {
                 aptOptions += " -o Acquire::Retries=10";
                 // aptOptions += " -o Acquire::BrokenProxy=true";
 
-                log.info(aptOptions);
-
                 final String aptUpdateCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " update";
                 final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions
                         + " install -m " + dependencies;
@@ -160,23 +158,20 @@ public class RiotCtlTool {
         try {
             int timeRc = client.exec("timedatectl | grep -q 'synchronized: no'", false);
             if (timeRc == 0) {
-                log.info("Updating system clock");
                 int attempts = 5;
-                timeRc = client.exec("sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
-                        false);
+                timeRc = client.exec("sudo timedatectl set-ntp 0 ", true);
+                timeRc = client.exec("sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'", false);
                 while (timeRc != 0 && --attempts > 0) {
-                    log.info("Attempting again in 5 seconds...");
-                    Thread.sleep(5000);
-                    timeRc = client.exec(
-                            "sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'", false);
+                    log.info("Attempting again in 10 seconds...");
+                    Thread.sleep(10000);
+                    timeRc = client.exec("sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
+                            false);
                 }
-            }
-            int rc = client.exec(
-                    "timedatectl | grep -q 'synchronized: no' " + "&& sudo timedatectl set-ntp 0 "
-                            + "&& sudo timedatectl set-time '" + TIMEDATECTL_FMT.format(new Date()) + "'",
-                    false);
-            if (rc == 1)
+                log.info("Updated system clock");
+            } else {
                 log.debug("System clock is already synchronized");
+            }
+
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
             log.error(e.getMessage());
