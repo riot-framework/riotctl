@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
+import riot.riotctl.Target.DiscoveryMethod;
 import riot.riotctl.discovery.BonjourProbe;
 import riot.riotctl.discovery.DiscoveryUtil;
 import riot.riotctl.discovery.HostInfo;
@@ -61,9 +62,12 @@ public class RiotCtlTool {
                 final ProxyServer proxy = ProxyServer.ensureProxy(8080, log);
                 client.setProxy(proxy);
 
-                final String aptOptions = "-y -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\"";
-                final String aptUpdateCmd = "sudo apt-get " + aptOptions + " update";
-                final String aptInstallCmd = "sudo apt-get " + aptOptions + " install " + dependencies;
+                String aptOptions = "-y";
+                aptOptions += " -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\""; 
+                aptOptions += " -o Acquire::http::No-Cache=true"; 
+                aptOptions += " -o Acquire::http::Pipeline-Depth=0"; 
+                final String aptUpdateCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " update";
+                final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " install " + dependencies;
 
                 // Update package list if it's over a month old:
                 int updRc = client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;",
@@ -289,18 +293,18 @@ public class RiotCtlTool {
 
         RiotCtlTool.discover(new StdOutLogger(false));
 
-        // StdOutLogger log = new StdOutLogger();
-        // List<Target> targets = new ArrayList<>();
-        // Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi",
-        // "pi", "raspberry");
-        // targets.add(target);
-        //
-        // File stageDir = new File(args[0]);
-        //
-        // RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-        // tool.ensureEnabled(true, true, false, false,
-        // true).ensurePackages("openjdk-8-jdk wiringpi i2c-tools")
-        // .deployDbg(7896).run().close();
-        // log.info("done");
+//         StdOutLogger log = new StdOutLogger();
+//         List<Target> targets = new ArrayList<>();
+//         Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi",
+//         "pi", "raspberry");
+//         targets.add(target);
+//        
+//         File stageDir = new File(args[0]);
+//        
+//         RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
+//         tool.ensureEnabled(true, true, false, false,true)
+//             .ensurePackages("default-jdk-headless wiringpi i2c-tools")
+//             .deployDbg(7896).run().close();
+//         log.info("done");
     }
 }
