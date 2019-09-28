@@ -80,6 +80,10 @@ public class SSHClient implements Closeable {
     }
 
     public int exec(String command, boolean checkRc) throws IOException {
+        return exec(command, false, checkRc);
+    }
+
+    public int exec(String command, boolean echo, boolean checkRc) throws IOException {
         final ChannelExec channel = openExecChannel();
         channel.setCommand(command);
 
@@ -110,7 +114,10 @@ public class SSHClient implements Closeable {
                 error.append(new String(tmp, 0, i));
             }
             if (debug.length() > 0 && debug.charAt(debug.length() - 1) == '\n') {
-                log.debug(debug.toString().trim());
+                if (echo)
+                    log.info(debug.toString().trim());
+                else
+                    log.debug(debug.toString().trim());
                 debug = new StringBuilder();
             }
             if (error.length() > 0 && error.charAt(error.length() - 1) == '\n') {

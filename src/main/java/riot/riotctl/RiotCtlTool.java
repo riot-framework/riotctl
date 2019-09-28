@@ -63,22 +63,29 @@ public class RiotCtlTool {
                 client.setProxy(proxy);
 
                 String aptOptions = "-y";
-                aptOptions += " -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\""; 
-                aptOptions += " -o Acquire::http::No-Cache=true"; 
-                aptOptions += " -o Acquire::http::Pipeline-Depth=0"; 
+                aptOptions += " -o Acquire::http::proxy=\"socks5h://localhost:" + proxy.getPort() + "\"";
+                // aptOptions += " -o Acquire::http::proxy=\"http://localhost:" +
+                // proxy.getPort() + "/\"";
+                aptOptions += " -o Acquire::http::No-Cache=true";
+                aptOptions += " -o Acquire::http::Pipeline-Depth=0";
+                // aptOptions += " -o Acquire::BrokenProxy=true";
+
+                log.info(aptOptions);
+
                 final String aptUpdateCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " update";
-                final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " install " + dependencies;
+                final String aptInstallCmd = "sudo DEBIAN_FRONTEND=noninteractive apt-get " + aptOptions + " install "
+                        + dependencies;
 
                 // Update package list if it's over a month old:
-                int updRc = client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 -exec " + aptUpdateCmd + " \\;",
-                        false);
-                if (updRc != 1) {
-                    // File doesn't even exist yet, or couldn't be checked.
+                int updRc = client.exec("find /var/cache/apt/pkgcache.bin -mtime +30 | egrep '.*'", false);
+                if (updRc != 0) {
+                    // File doesn't exist, or is more than 30 days old.
+                    log.info("Updating package list");
                     client.exec(aptUpdateCmd, true);
                 }
 
                 // Update the packages:
-                client.exec(aptInstallCmd, true);
+                client.exec(aptInstallCmd, true, true);
                 client.mkDir(pkgConf.runDir);
                 client.write(dependencies, pkgConf.runDir + "/dependencies.lst");
 
@@ -291,20 +298,18 @@ public class RiotCtlTool {
 
     public static void main(String[] args) throws IOException {
 
-        RiotCtlTool.discover(new StdOutLogger(false));
+        // RiotCtlTool.discover(new StdOutLogger(false));
 
-//         StdOutLogger log = new StdOutLogger();
-//         List<Target> targets = new ArrayList<>();
-//         Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi",
-//         "pi", "raspberry");
-//         targets.add(target);
-//        
-//         File stageDir = new File(args[0]);
-//        
-//         RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
-//         tool.ensureEnabled(true, true, false, false,true)
-//             .ensurePackages("default-jdk-headless wiringpi i2c-tools")
-//             .deployDbg(7896).run().close();
-//         log.info("done");
+        StdOutLogger log = new StdOutLogger();
+        List<Target> targets = new ArrayList<>();
+        Target target = new Target(DiscoveryMethod.HOST_THEN_MDNS, "raspberrypi", "pi", "raspberry");
+        targets.add(target);
+
+        File stageDir = new File(args[0]);
+
+        RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
+        tool.ensureEnabled(true, true, false, false, true).ensurePackages("openjdk-8-jdk-headless wiringpi i2c-tools")
+                .deployDbg(7896).run().close();
+        log.info("done");
     }
 }
