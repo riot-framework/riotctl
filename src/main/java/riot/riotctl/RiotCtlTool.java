@@ -188,7 +188,7 @@ public class RiotCtlTool {
     }
 
     public RiotCtlTool deployDbg(int debugPort) {
-        return deployWithParameters("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
+        return deploy("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
     }
 
     public RiotCtlTool deploy(String... vmparams) {
