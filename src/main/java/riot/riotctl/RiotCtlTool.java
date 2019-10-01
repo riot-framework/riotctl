@@ -191,11 +191,7 @@ public class RiotCtlTool {
         return deployWithParameters("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
     }
 
-    public RiotCtlTool deploy() {
-        return deployWithParameters();
-    }
-
-    public RiotCtlTool deployWithParameters(String... vmparams) {
+    public RiotCtlTool deploy(String... vmparams) {
         for (Iterator<SSHClient> iterator = clients.iterator(); iterator.hasNext();) {
             SSHClient client = iterator.next();
             try {
