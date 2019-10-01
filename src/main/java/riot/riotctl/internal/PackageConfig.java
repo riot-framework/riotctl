@@ -22,7 +22,7 @@ public class PackageConfig {
         this.runDir = "/run/" + packageName;
         this.startScript = binDir + "/bin/" + packageName;
         if (vmparams == null) {
-            this.startParams = new String[] {};
+            this.startParams = new String[]{};
         } else {
             this.startParams = vmparams;
         }
@@ -40,15 +40,14 @@ public class PackageConfig {
         for (int i = 0; i < startParams.length; i++) {
             sb.append("Environment=START_PARAMS=" + (i > 0 ? "${START_PARAMS} " : "") + startParams[i]).append(LF);
         }
-        // sb.append("EnvironmentFile=" + envDir).append(LF);
-        sb.append("ExecStart=/bin/bash " + startScript + " '${START_PARAMS}'").append(LF);
+        sb.append("ExecStart=" + startScript + " '${START_PARAMS}'").append(LF);
         sb.append("ExecReload=/bin/kill -HUP $MAINPID").append(LF);
         sb.append("Restart=always").append(LF);
         sb.append("RestartSec=60").append(LF);
         sb.append("SuccessExitStatus=143").append(LF); // VM responds to SIGTERM with RC 143
         sb.append("TimeoutStopSec=5").append(LF);
         sb.append("User=" + user).append(LF);
-        // sb.append("ExecStartPre=/bin/mkdir -p " + runDir).append(LF);
+        sb.append("ExecStartPre=/bin/chmod 755 " + startScript).append(LF);
         // sb.append("ExecStartPre=/bin/chown " + user + ":" + user + " " +
         // runDir).append(LF);
         // sb.append("ExecStartPre=/bin/chmod 755 " + runDir).append(LF);
@@ -60,4 +59,11 @@ public class PackageConfig {
         return sb.toString();
     }
 
+    public String getDeplistFileName() {
+        return binDir + "/dependencies.lst";
+    }
+
+    public String getSystemdFileName() {
+        return "/etc/systemd/system/" + packageName + ".service";
+    }
 }
