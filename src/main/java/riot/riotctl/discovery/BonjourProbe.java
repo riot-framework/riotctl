@@ -36,9 +36,10 @@ public class BonjourProbe implements ServiceListener, Closeable {
 
     /**
      * Set up an mDNS probe that will only log available devices
-     * 
-     * @param log
-     * @param allAdapters
+     *
+     * @param log         the RIoT logger object
+     * @param allAdapters whether to query all network adapters, or only those with IP beggining in 168.254.*,
+     *                    192.168.*, or 10.*
      */
     public BonjourProbe(Logger log, boolean allAdapters) {
         this(log, null, allAdapters ? findAdapters(log) : findMostLikelyAdapters(log));
@@ -95,10 +96,12 @@ public class BonjourProbe implements ServiceListener, Closeable {
         Set<InetAddress> results = new HashSet<InetAddress>();
         try {
             Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
-            nicLoop: for (NetworkInterface nic : Collections.list(nics)) {
+            nicLoop:
+            for (NetworkInterface nic : Collections.list(nics)) {
                 if (!nic.isUp())
                     continue;
-                ipLoop: for (InterfaceAddress ifAddress : nic.getInterfaceAddresses()) {
+                ipLoop:
+                for (InterfaceAddress ifAddress : nic.getInterfaceAddresses()) {
                     byte[] ifBytes = ifAddress.getAddress().getAddress();
                     for (int i = 0; i < ipStartsWith.length; i++) {
                         if (ifBytes[i] != ipStartsWith[i])
