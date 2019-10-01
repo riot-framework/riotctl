@@ -23,6 +23,9 @@ import riot.riotctl.logger.StdOutLogger;
 public class RiotCtlTool {
     private static final SimpleDateFormat TIMEDATECTL_FMT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    public static final String PARAM_VERBOSE = "-v";
+    public static final String PARAM_ADD_UNSUPPORTED_MODULES = "-J--add-modules=jdk.unsupported";
+
     private final List<SSHClient> clients = new ArrayList<SSHClient>();
     private final String packageName;
     private final File stageDir;
@@ -50,7 +53,7 @@ public class RiotCtlTool {
         for (SSHClient client : clients) {
             try {
                 PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername());
-                String[] lastCheckedPkg = client.read(pkgConf.runDir + "/dependencies.lst", true).split("\\s+");
+                String[] lastCheckedPkg = client.read(pkgConf.getDeplistFileName(), true).split("\\s+");
 
                 if (hasSamePackages(lastCheckedPkg, dependencies.split("\\s+"))) {
                     log.info("Dependencies unchanged since last install, skipping check on " + client.getHost());
@@ -84,7 +87,7 @@ public class RiotCtlTool {
                 // Update the packages:
                 client.exec(aptInstallCmd, true, true);
                 client.mkDir(pkgConf.runDir);
-                client.write(dependencies, pkgConf.runDir + "/dependencies.lst");
+                client.write(dependencies, pkgConf.getDeplistFileName());
 
                 client.resetProxy();
             } catch (IOException e) {
@@ -185,17 +188,21 @@ public class RiotCtlTool {
     }
 
     public RiotCtlTool deployDbg(int debugPort) {
-        return deploy("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
+        return deployWithParameters("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=" + debugPort);
     }
 
-    public RiotCtlTool deploy(String... vmparams) {
+    public RiotCtlTool deploy() {
+        return deployWithParameters();
+    }
+
+    public RiotCtlTool deployWithParameters(String... vmparams) {
         for (Iterator<SSHClient> iterator = clients.iterator(); iterator.hasNext();) {
             SSHClient client = iterator.next();
             try {
                 PackageConfig pkgConf = new PackageConfig(packageName, client.getUsername(), vmparams);
                 log.info("Deploying " + pkgConf.packageName + " to " + client.getHost());
                 client.copyDir(stageDir, pkgConf.binDir);
-                client.write(pkgConf.toSystemdFile(), "/etc/systemd/system/" + pkgConf.packageName + ".service");
+                client.write(pkgConf.toSystemdFile(), pkgConf.getSystemdFileName());
                 client.exec("sudo systemctl daemon-reload", true);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -320,7 +327,7 @@ public class RiotCtlTool {
 
         RiotCtlTool tool = new RiotCtlTool(args[1], stageDir, targets, log);
         tool.ensureEnabled(true, true, false, false, true).ensurePackages("openjdk-8-jdk-headless wiringpi i2c-tools")
-                .deployDbg(7896).run().close();
+                .deploy().run().close();
         log.info("done");
     }
 }
