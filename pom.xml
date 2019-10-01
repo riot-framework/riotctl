@@ -3,7 +3,7 @@
 
 	<groupId>org.riot-framework</groupId>
 	<artifactId>riotctl</artifactId>
-	<version>0.7</version>
+	<version>0.8-SNAPSHOT</version>
 
 	<name>RIoT Control base library</name>
 	<description>RIoT Control is a library used by various build plugins to deploy Java applications to small form factor computers</description>
@@ -35,7 +35,7 @@
 	<scm>
 		<connection>scm:git:git@github.com:riot-framework/riotctl.git</connection>
 		<url>https://github.com/riot-framework/riotctl</url>
-		<tag>riotctl-0.7</tag>
+		<tag>riotctl-0.2</tag>
 	</scm>
 
 	<dependencies>
